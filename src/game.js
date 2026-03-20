@@ -50,11 +50,11 @@ window.addEventListener("keydown", (e) => {
   keys.add(key);
 
   if (!e.repeat) {
-    if (key === "h") {
+    if (key === "i") {
       toggleHoodie();
-    } else if (key === "p") {
+    } else if (key === "o") {
       togglePhone();
-    } else if (key === "r") {
+    } else if (key === "p") {
       toggleRest();
     }
   }
@@ -75,9 +75,9 @@ function togglePhone() {
 }
 
 function updateActionHud() {
-  hoodieState.innerHTML = `<kbd>H</kbd> Hoodie: ${player.hoodieUp ? "Up" : "Down"}`;
-  phoneState.innerHTML = `<kbd>P</kbd> Phone: ${player.phoneOut ? "Out" : "Away"}`;
-  restState.innerHTML = `<kbd>R</kbd> Wall-Flower: ${player.resting ? "On" : "Off"}`;
+  hoodieState.innerHTML = `<kbd>I</kbd> Hoodie: ${player.hoodieUp ? "Up" : "Down"}`;
+  phoneState.innerHTML = `<kbd>O</kbd> Phone: ${player.phoneOut ? "Out" : "Away"}`;
+  restState.innerHTML = `<kbd>P</kbd> Wall-Flower: ${player.resting ? "On" : "Off"}`;
 
   hoodieState.classList.toggle("active", player.hoodieUp);
   phoneState.classList.toggle("active", player.phoneOut);
@@ -103,16 +103,7 @@ function toggleRest() {
 }
 
 function isMoving() {
-  return (
-    keys.has("w") ||
-    keys.has("a") ||
-    keys.has("s") ||
-    keys.has("d") ||
-    keys.has("arrowup") ||
-    keys.has("arrowleft") ||
-    keys.has("arrowdown") ||
-    keys.has("arrowright")
-  );
+  return keys.has("w") || keys.has("a") || keys.has("s") || keys.has("d");
 }
 
 function insideRect(x, y, r) {
@@ -133,10 +124,10 @@ function updatePlayer() {
   let dx = 0;
   let dy = 0;
 
-  if (keys.has("w") || keys.has("arrowup")) dy -= 1;
-  if (keys.has("s") || keys.has("arrowdown")) dy += 1;
-  if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
-  if (keys.has("d") || keys.has("arrowright")) dx += 1;
+  if (keys.has("w")) dy -= 1;
+  if (keys.has("s")) dy += 1;
+  if (keys.has("a")) dx -= 1;
+  if (keys.has("d")) dx += 1;
 
   if (dx || dy) {
     const mag = Math.hypot(dx, dy) || 1;
