@@ -111,7 +111,7 @@ let anxiety = 25;
 let delivered = false;
 let gameOver = false;
 
-window.addEventListener("keydown", (e) => {
+globalThis.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   keys.add(key);
 
@@ -126,7 +126,7 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-window.addEventListener("keyup", (e) => {
+globalThis.addEventListener("keyup", (e) => {
   keys.delete(e.key.toLowerCase());
 });
 
@@ -245,23 +245,24 @@ function segmentIntersectsRect(x1, y1, x2, y2, rect) {
     [rect.x + rect.w, rect.y + rect.h, rect.x, rect.y + rect.h],
     [rect.x, rect.y + rect.h, rect.x, rect.y],
   ];
-  return edges.some(([ax, ay, bx, by]) => segmentsIntersect(x1, y1, x2, y2, ax, ay, bx, by));
+  const lineStart = { x: x1, y: y1 };
+  const lineEnd = { x: x2, y: y2 };
+  return edges.some(([ax, ay, bx, by]) => {
+    const edgeStart = { x: ax, y: ay };
+    const edgeEnd = { x: bx, y: by };
+    return segmentsIntersect(lineStart, lineEnd, edgeStart, edgeEnd);
+  });
 }
 
-function segmentsIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-  const d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-  if (d === 0) return false;
-  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
-  const u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / d;
+function segmentsIntersect(a, b, c, d) {
+  const denom = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+  if (denom === 0) return false;
+  const t = ((a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)) / denom;
+  const u = ((a.x - c.x) * (a.y - b.y) - (a.y - c.y) * (a.x - b.x)) / denom;
   return t >= 0 && t <= 1 && u >= 0 && u <= 1;
 }
 
-function updateAnxiety() {
-  if (gameOver || delivered) {
-    return;
-  }
-
-  let anxietyDelta = -0.01;
+function countNpcsSeeingPlayer() {
   let seenCount = 0;
 
   npcs.forEach((n) => {
@@ -282,6 +283,12 @@ function updateAnxiety() {
     }
   });
 
+  return seenCount;
+}
+
+function getAnxietyDelta(seenCount) {
+  let anxietyDelta = -0.01;
+
   if (seenCount > 0) {
     anxietyDelta += 0.26 * seenCount;
     if (player.hoodieUp) anxietyDelta -= 0.09;
@@ -291,6 +298,17 @@ function updateAnxiety() {
     if (player.resting) anxietyDelta -= 0.22;
     if (player.phoneOut) anxietyDelta -= 0.02;
   }
+
+  return anxietyDelta;
+}
+
+function updateAnxiety() {
+  if (gameOver || delivered) {
+    return;
+  }
+
+  const seenCount = countNpcsSeeingPlayer();
+  const anxietyDelta = getAnxietyDelta(seenCount);
 
   const movementStress = isMoving() && !player.phoneOut ? 0.02 : 0;
   anxiety = Math.max(0, Math.min(100, anxiety + anxietyDelta + movementStress));
