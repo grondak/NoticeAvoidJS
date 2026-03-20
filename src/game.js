@@ -4,6 +4,7 @@ const ctx = canvas.getContext("2d");
 const anxietyBar = document.getElementById("anxietyBar");
 const anxietyValue = document.getElementById("anxietyValue");
 const statusText = document.getElementById("statusText");
+const burstText = document.getElementById("burstText");
 const hoodieState = document.getElementById("hoodieState");
 const phoneState = document.getElementById("phoneState");
 const restState = document.getElementById("restState");
@@ -110,6 +111,68 @@ const keys = new Set();
 let anxiety = 25;
 let delivered = false;
 let gameOver = false;
+let burstMessageUntil = 0;
+let nextInternalBurstAt = performance.now() + randInt(7000, 14000);
+
+function getDefaultStatusText() {
+  if (gameOver) {
+    return "Overwhelmed. Breathe and try again (refresh).";
+  }
+  if (delivered) {
+    return "Delivered. Chad got the science homework.";
+  }
+  if (player.resting) {
+    return "Wall-flower mode: taking a breather.";
+  }
+  return "Mission: deliver homework to Chad.";
+}
+
+function getBurstMitigation() {
+  let mitigation = 0;
+  if (player.hoodieUp) mitigation += 0.18;
+  if (player.phoneOut) mitigation += 0.15;
+  if (player.resting) mitigation += 0.3;
+  return Math.min(0.65, mitigation);
+}
+
+function setBurstMessage(text) {
+  if (!burstText) {
+    return;
+  }
+
+  if (text) {
+    burstText.textContent = text;
+    burstText.classList.add("active");
+  } else {
+    burstText.textContent = "";
+    burstText.classList.remove("active");
+  }
+}
+
+function maybeTriggerInternalBurst(now) {
+  if (now < nextInternalBurstAt || gameOver || delivered) {
+    return;
+  }
+
+  const rawBurst = randInt(15, 35);
+  const reducedBurst = Math.max(1, Math.round(rawBurst * (1 - getBurstMitigation())));
+  anxiety = Math.min(100, anxiety + reducedBurst);
+
+  statusText.textContent = `Suddenly, you aren't feeling it. +${reducedBurst} anxiety`;
+  setBurstMessage(`Suddenly, you aren't feeling it. +${reducedBurst} anxiety`);
+  burstMessageUntil = now + 2800;
+  nextInternalBurstAt = now + randInt(9000, 18000);
+}
+
+function clearBurstMessageIfDone(now) {
+  if (burstMessageUntil === 0 || now < burstMessageUntil) {
+    return;
+  }
+
+  burstMessageUntil = 0;
+  setBurstMessage("");
+  statusText.textContent = getDefaultStatusText();
+}
 
 globalThis.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
@@ -312,14 +375,17 @@ function updateAnxiety() {
 
   const movementStress = isMoving() && !player.phoneOut ? 0.02 : 0;
   anxiety = Math.max(0, Math.min(100, anxiety + anxietyDelta + movementStress));
+  maybeTriggerInternalBurst(performance.now());
 
   anxietyBar.value = anxiety;
   anxietyValue.textContent = String(Math.round(anxiety));
 
   if (anxiety >= 100) {
     gameOver = true;
-    statusText.textContent = "Overwhelmed. Breathe and try again (refresh).";
+    statusText.textContent = getDefaultStatusText();
   }
+
+  clearBurstMessageIfDone(performance.now());
 }
 
 function checkMission() {
@@ -331,7 +397,8 @@ function checkMission() {
     player.y < houseB.y + houseB.h
   ) {
     delivered = true;
-    statusText.textContent = "Delivered. Chad got the science homework.";
+    statusText.textContent = getDefaultStatusText();
+    setBurstMessage("");
   }
 }
 

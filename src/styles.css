@@ -137,6 +137,20 @@ body {
   flex-wrap: wrap;
 }
 
+.burst-text {
+  min-height: 1.2rem;
+  font-weight: 700;
+  color: #8a2f22;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.burst-text.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .meters progress {
   width: min(420px, 62vw);
   height: 1rem;
