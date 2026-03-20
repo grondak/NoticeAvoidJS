@@ -4,8 +4,9 @@ const ctx = canvas.getContext("2d");
 const anxietyBar = document.getElementById("anxietyBar");
 const anxietyValue = document.getElementById("anxietyValue");
 const statusText = document.getElementById("statusText");
-const hoodieBtn = document.getElementById("hoodieBtn");
-const phoneBtn = document.getElementById("phoneBtn");
+const hoodieState = document.getElementById("hoodieState");
+const phoneState = document.getElementById("phoneState");
+const restState = document.getElementById("restState");
 
 const WORLD = {
   w: canvas.width,
@@ -45,9 +46,17 @@ let delivered = false;
 let gameOver = false;
 
 window.addEventListener("keydown", (e) => {
-  keys.add(e.key.toLowerCase());
-  if (e.key === " ") {
-    toggleRest();
+  const key = e.key.toLowerCase();
+  keys.add(key);
+
+  if (!e.repeat) {
+    if (key === "h") {
+      toggleHoodie();
+    } else if (key === "p") {
+      togglePhone();
+    } else if (key === "r") {
+      toggleRest();
+    }
   }
 });
 
@@ -55,17 +64,25 @@ window.addEventListener("keyup", (e) => {
   keys.delete(e.key.toLowerCase());
 });
 
-hoodieBtn.addEventListener("click", () => {
+function toggleHoodie() {
   player.hoodieUp = !player.hoodieUp;
-  hoodieBtn.textContent = `Hoodie: ${player.hoodieUp ? "Up" : "Down"}`;
-  hoodieBtn.classList.toggle("active", player.hoodieUp);
-});
+  updateActionHud();
+}
 
-phoneBtn.addEventListener("click", () => {
+function togglePhone() {
   player.phoneOut = !player.phoneOut;
-  phoneBtn.textContent = `Phone: ${player.phoneOut ? "Out" : "Away"}`;
-  phoneBtn.classList.toggle("active", player.phoneOut);
-});
+  updateActionHud();
+}
+
+function updateActionHud() {
+  hoodieState.innerHTML = `<kbd>H</kbd> Hoodie: ${player.hoodieUp ? "Up" : "Down"}`;
+  phoneState.innerHTML = `<kbd>P</kbd> Phone: ${player.phoneOut ? "Out" : "Away"}`;
+  restState.innerHTML = `<kbd>R</kbd> Wall-Flower: ${player.resting ? "On" : "Off"}`;
+
+  hoodieState.classList.toggle("active", player.hoodieUp);
+  phoneState.classList.toggle("active", player.phoneOut);
+  restState.classList.toggle("active", player.resting);
+}
 
 function toggleRest() {
   const nearWall = walls.some((w) => {
@@ -76,7 +93,26 @@ function toggleRest() {
 
   if (nearWall) {
     player.resting = !player.resting;
+    statusText.textContent = player.resting
+      ? "Wall-flower mode: taking a breather."
+      : "Mission: deliver homework to Chad.";
+    updateActionHud();
+  } else {
+    statusText.textContent = "Move next to a wall to use Wall-Flower mode.";
   }
+}
+
+function isMoving() {
+  return (
+    keys.has("w") ||
+    keys.has("a") ||
+    keys.has("s") ||
+    keys.has("d") ||
+    keys.has("arrowup") ||
+    keys.has("arrowleft") ||
+    keys.has("arrowdown") ||
+    keys.has("arrowright")
+  );
 }
 
 function insideRect(x, y, r) {
@@ -199,7 +235,7 @@ function updateAnxiety() {
     if (player.phoneOut) anxietyDelta -= 0.02;
   }
 
-  const movementStress = keys.size > 0 && !player.phoneOut ? 0.02 : 0;
+  const movementStress = isMoving() && !player.phoneOut ? 0.02 : 0;
   anxiety = Math.max(0, Math.min(100, anxiety + anxietyDelta + movementStress));
 
   anxietyBar.value = anxiety;
@@ -306,4 +342,5 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
+updateActionHud();
 tick();
