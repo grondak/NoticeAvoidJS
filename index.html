@@ -11,29 +11,59 @@
     <link rel="stylesheet" href="src/styles.css" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="hud">
+    <main class="intro-shell">
+      <header class="intro-hero panel">
+        <p class="eyebrow">A Social Stealth Game</p>
         <h1>Notice:Avoid</h1>
-        <div class="hud-row">
-          <span id="statusText">Mission: deliver homework to Chad.</span>
-        </div>
-        <div class="hud-row meters">
-          <label for="anxietyBar">Anxiety</label>
-          <progress id="anxietyBar" max="100" value="25"></progress>
-          <span id="anxietyValue">25</span>
-        </div>
-        <div class="hud-row controls">
-          <div class="action-pill" id="hoodieState"><kbd>I</kbd> Hoodie: Down</div>
-          <div class="action-pill" id="phoneState"><kbd>O</kbd> Phone: Away</div>
-          <div class="action-pill" id="restState"><kbd>P</kbd> Wall-Flower: Off</div>
-          <span>Move: WASD</span>
-        </div>
+        <p>
+          You have one simple mission: get Chad's science homework from your house to his.
+          The city is full of eyes, vibes, and accidental social contact.
+        </p>
+        <a class="cta" href="play.html">Start The Walk</a>
       </header>
-      <section class="game-wrap">
-        <canvas id="game" width="960" height="540" aria-label="Notice Avoid Game"></canvas>
+
+      <section class="panel">
+        <h2>World Overview</h2>
+        <p>
+          This is a top-down city run where anxiety is the real boss fight. People can notice
+          you if they look at you, drift too close, or catch behavior that feels off. Walls are
+          your cover and your breather spots.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>How To Play</h2>
+        <div class="instruction-grid">
+          <div class="instruction-card">
+            <h3>Move</h3>
+            <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move through the city.</p>
+          </div>
+          <div class="instruction-card">
+            <h3>Hoodie</h3>
+            <p><kbd>I</kbd> toggles hoodie up/down to lower how obvious you feel.</p>
+          </div>
+          <div class="instruction-card">
+            <h3>Phone</h3>
+            <p><kbd>O</kbd> toggles phone out/away to blend in while moving slower.</p>
+          </div>
+          <div class="instruction-card">
+            <h3>Wall-Flower</h3>
+            <p><kbd>P</kbd> near a wall to stop, lean back, and decompress.</p>
+          </div>
+          <div class="instruction-card">
+            <h3>Win</h3>
+            <p>Reach Chad's house with anxiety below max.</p>
+          </div>
+          <div class="instruction-card">
+            <h3>Lose</h3>
+            <p>If anxiety reaches 100, you are overwhelmed and must try again.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel intro-footer">
+        <a class="cta" href="play.html">Play Notice:Avoid</a>
       </section>
     </main>
-
-    <script type="module" src="src/game.js"></script>
   </body>
 </html>

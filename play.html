@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notice:Avoid - Play</title>
+    <meta
+      name="description"
+      content="Play Notice:Avoid and deliver Chad's homework while managing social anxiety."
+    />
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hud">
+        <div class="hud-topline">
+          <h1>Notice:Avoid</h1>
+          <a class="text-link" href="index.html">Back To Intro</a>
+        </div>
+        <div class="hud-row">
+          <span id="statusText">Mission: deliver homework to Chad.</span>
+        </div>
+        <div class="hud-row meters">
+          <label for="anxietyBar">Anxiety</label>
+          <progress id="anxietyBar" max="100" value="25"></progress>
+          <span id="anxietyValue">25</span>
+        </div>
+        <div class="hud-row controls">
+          <div class="action-pill" id="hoodieState"><kbd>I</kbd> Hoodie: Down</div>
+          <div class="action-pill" id="phoneState"><kbd>O</kbd> Phone: Away</div>
+          <div class="action-pill" id="restState"><kbd>P</kbd> Wall-Flower: Off</div>
+          <span>Move: WASD</span>
+        </div>
+      </header>
+      <section class="game-wrap">
+        <canvas id="game" width="960" height="540" aria-label="Notice Avoid Game"></canvas>
+      </section>
+    </main>
+
+    <script type="module" src="src/game.js"></script>
+  </body>
+</html>
