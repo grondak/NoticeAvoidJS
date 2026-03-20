@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notice:Avoid</title>
+    <meta
+      name="description"
+      content="Deliver Chad's science homework while managing social anxiety."
+    />
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hud">
+        <h1>Notice:Avoid</h1>
+        <div class="hud-row">
+          <span id="statusText">Mission: deliver homework to Chad.</span>
+        </div>
+        <div class="hud-row meters">
+          <label for="anxietyBar">Anxiety</label>
+          <progress id="anxietyBar" max="100" value="25"></progress>
+          <span id="anxietyValue">25</span>
+        </div>
+        <div class="hud-row controls">
+          <button id="hoodieBtn" type="button">Hoodie: Down</button>
+          <button id="phoneBtn" type="button">Phone: Away</button>
+          <span>Move: WASD / Arrow Keys</span>
+        </div>
+      </header>
+      <section class="game-wrap">
+        <canvas id="game" width="960" height="540" aria-label="Notice Avoid Game"></canvas>
+      </section>
+    </main>
+
+    <script type="module" src="src/game.js"></script>
+  </body>
+</html>

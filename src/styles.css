@@ -1,0 +1,91 @@
+:root {
+  --bg: #f0efe8;
+  --ink: #1b1a18;
+  --accent: #bf3d2d;
+  --accent-2: #2f7d6b;
+  --panel: #fff7e8;
+  --line: #d4c9b6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 15% 20%, #fff3d9 0 20%, transparent 21%),
+    radial-gradient(circle at 80% 0%, #dbece7 0 24%, transparent 25%),
+    var(--bg);
+}
+
+.app-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hud {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+}
+
+.hud h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: 0.02em;
+}
+
+.hud-row {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meters progress {
+  width: min(420px, 62vw);
+  height: 1rem;
+}
+
+.controls button {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.controls button.active {
+  border-color: var(--accent);
+  background: #ffe7de;
+}
+
+.game-wrap {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eef2f2;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100vh - 250px);
+}
+
+@media (max-width: 900px) {
+  .hud h1 {
+    font-size: 1.4rem;
+  }
+}

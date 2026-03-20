@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Optional dependency folders if you add a toolchain later
+node_modules/
