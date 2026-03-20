@@ -64,6 +64,16 @@ body {
   line-height: 1.4;
 }
 
+.version-tag {
+  display: inline-block;
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px dashed #b69d7d;
+  border-radius: 999px;
+  background: #fffef9;
+  font-size: 0.85rem;
+}
+
 .instruction-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -114,6 +124,13 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.hud-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
