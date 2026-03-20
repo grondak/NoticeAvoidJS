@@ -26,19 +26,85 @@ const player = {
 const houseA = { x: 36, y: 430, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 780, y: 44, w: 150, h: 100, label: "Chad's House" };
 
-const walls = [
-  { x: 190, y: 350, w: 14, h: 175 },
-  { x: 310, y: 190, w: 240, h: 14 },
-  { x: 530, y: 265, w: 14, h: 205 },
-  { x: 690, y: 90, w: 14, h: 175 },
-  { x: 390, y: 370, w: 220, h: 14 },
-];
+let walls = [];
+let npcs = [];
 
-const npcs = [
-  { x: 295, y: 120, dir: 1.2, speed: 0.8, range: 120, fov: 1.2, patrol: "h" },
-  { x: 655, y: 440, dir: -2.6, speed: 0.6, range: 130, fov: 1.3, patrol: "v" },
-  { x: 460, y: 85, dir: 2.6, speed: 0.7, range: 100, fov: 1.0, patrol: "h" },
-];
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function generateWalls() {
+  const blocked = [
+    { x: houseA.x - 20, y: houseA.y - 20, w: houseA.w + 40, h: houseA.h + 40 },
+    { x: houseB.x - 20, y: houseB.y - 20, w: houseB.w + 40, h: houseB.h + 40 },
+    { x: player.x - 30, y: player.y - 30, w: 60, h: 60 },
+  ];
+
+  const generated = [];
+  const wallTarget = randInt(4, 9);
+  let tries = 0;
+
+  while (generated.length < wallTarget && tries < 500) {
+    tries += 1;
+    const vertical = Math.random() < 0.5;
+    const wall = vertical
+      ? { x: randInt(170, 760), y: randInt(80, 390), w: 14, h: randInt(90, 220) }
+      : { x: randInt(180, 640), y: randInt(100, 460), w: randInt(90, 250), h: 14 };
+
+    if (blocked.some((zone) => rectsOverlap(wall, zone))) {
+      continue;
+    }
+    if (generated.some((existing) => rectsOverlap(wall, existing))) {
+      continue;
+    }
+    generated.push(wall);
+  }
+
+  return generated;
+}
+
+function isPointInsideWall(x, y) {
+  return walls.some((w) => x > w.x && x < w.x + w.w && y > w.y && y < w.y + w.h);
+}
+
+function generateNpcs() {
+  const generated = [];
+  const npcTarget = randInt(2, 7);
+  let tries = 0;
+
+  while (generated.length < npcTarget && tries < 500) {
+    tries += 1;
+    const x = randInt(220, 700);
+    const y = randInt(120, 440);
+    const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
+    const farFromHouses =
+      Math.hypot(x - (houseA.x + houseA.w / 2), y - (houseA.y + houseA.h / 2)) > 100 &&
+      Math.hypot(x - (houseB.x + houseB.w / 2), y - (houseB.y + houseB.h / 2)) > 100;
+
+    if (!farFromPlayer || !farFromHouses || isPointInsideWall(x, y)) {
+      continue;
+    }
+
+    generated.push({
+      x,
+      y,
+      dir: Math.random() * Math.PI * 2,
+      speed: 0.55 + Math.random() * 0.4,
+      range: randInt(95, 140),
+      fov: 1 + Math.random() * 0.35,
+      patrol: Math.random() < 0.5 ? "h" : "v",
+    });
+  }
+
+  return generated;
+}
+
+walls = generateWalls();
+npcs = generateNpcs();
 
 const keys = new Set();
 let anxiety = 25;
