@@ -9,14 +9,13 @@ const hoodieState = document.getElementById("hoodieState");
 const phoneState = document.getElementById("phoneState");
 const restState = document.getElementById("restState");
 
-const WORLD = {
-  w: canvas.width,
-  h: canvas.height,
-};
+const VIEWPORT = { w: canvas.width, h: canvas.height };
+const WORLD = { w: 1920, h: 1080 };
+const camera = { x: 0, y: 0 };
 
 const player = {
-  x: 80,
-  y: 470,
+  x: 90,
+  y: 930,
   r: 10,
   speed: 2.3,
   hoodieUp: false,
@@ -24,8 +23,8 @@ const player = {
   resting: false,
 };
 
-const houseA = { x: 36, y: 430, w: 120, h: 95, label: "Your House" };
-const houseB = { x: 780, y: 44, w: 150, h: 100, label: "Chad's House" };
+const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
+const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 let walls = [];
 let npcs = [];
@@ -46,15 +45,15 @@ function generateWalls() {
   ];
 
   const generated = [];
-  const wallTarget = randInt(4, 9);
+  const wallTarget = randInt(8, 16);
   let tries = 0;
 
   while (generated.length < wallTarget && tries < 500) {
     tries += 1;
     const vertical = Math.random() < 0.5;
     const wall = vertical
-      ? { x: randInt(170, 760), y: randInt(80, 390), w: 14, h: randInt(90, 220) }
-      : { x: randInt(180, 640), y: randInt(100, 460), w: randInt(90, 250), h: 14 };
+      ? { x: randInt(200, 1680), y: randInt(100, 880), w: 14, h: randInt(90, 220) }
+      : { x: randInt(200, 1600), y: randInt(100, 960), w: randInt(90, 250), h: 14 };
 
     if (blocked.some((zone) => rectsOverlap(wall, zone))) {
       continue;
@@ -74,13 +73,13 @@ function isPointInsideWall(x, y) {
 
 function generateNpcs() {
   const generated = [];
-  const npcTarget = randInt(2, 7);
+  const npcTarget = randInt(5, 12);
   let tries = 0;
 
   while (generated.length < npcTarget && tries < 500) {
     tries += 1;
-    const x = randInt(220, 700);
-    const y = randInt(120, 440);
+    const x = randInt(220, 1680);
+    const y = randInt(120, 940);
     const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
     const farFromHouses =
       Math.hypot(x - (houseA.x + houseA.w / 2), y - (houseA.y + houseA.h / 2)) > 100 &&
@@ -245,6 +244,12 @@ function collidesWithWalls(x, y, r) {
   );
 }
 
+function getSpeedScale() {
+  const hoodieScale = player.hoodieUp ? 0.84 : 1;
+  const phoneScale = player.phoneOut ? 0.72 : 1;
+  return hoodieScale * phoneScale;
+}
+
 function updatePlayer() {
   if (gameOver || delivered || player.resting) {
     return;
@@ -260,9 +265,7 @@ function updatePlayer() {
 
   if (dx || dy) {
     const mag = Math.hypot(dx, dy) || 1;
-    const hoodieSpeedScale = player.hoodieUp ? 0.84 : 1;
-    const phoneSpeedScale = player.phoneOut ? 0.72 : 1;
-    const speedScale = hoodieSpeedScale * phoneSpeedScale;
+    const speedScale = getSpeedScale();
     const stepX = (dx / mag) * player.speed * speedScale;
     const stepY = (dy / mag) * player.speed * speedScale;
 
@@ -282,12 +285,12 @@ function updateNpcs() {
   npcs.forEach((n) => {
     if (n.patrol === "h") {
       n.x += Math.cos(n.dir) * n.speed;
-      if (n.x < 200 || n.x > 720) {
+      if (n.x < 200 || n.x > 1700) {
         n.dir = Math.PI - n.dir;
       }
     } else {
       n.y += Math.sin(n.dir) * n.speed;
-      if (n.y < 110 || n.y > 460) {
+      if (n.y < 110 || n.y > 960) {
         n.dir = -n.dir;
       }
     }
@@ -404,13 +407,18 @@ function checkMission() {
   }
 }
 
+function updateCamera() {
+  camera.x = Math.max(0, Math.min(player.x - VIEWPORT.w / 2, WORLD.w - VIEWPORT.w));
+  camera.y = Math.max(0, Math.min(player.y - VIEWPORT.h / 2, WORLD.h - VIEWPORT.h));
+}
+
 function drawCity() {
   ctx.fillStyle = "#ece8de";
   ctx.fillRect(0, 0, WORLD.w, WORLD.h);
 
   ctx.fillStyle = "#d6d1c2";
-  ctx.fillRect(0, 250, WORLD.w, 54);
-  ctx.fillRect(380, 0, 60, WORLD.h);
+  ctx.fillRect(0, 500, WORLD.w, 54);
+  ctx.fillRect(940, 0, 60, WORLD.h);
 
   ctx.fillStyle = "#a9b6b2";
   walls.forEach((w) => ctx.fillRect(w.x, w.y, w.w, w.h));
@@ -477,11 +485,15 @@ function tick() {
   updateNpcs();
   updateAnxiety();
   checkMission();
+  updateCamera();
 
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
   drawCity();
   drawMissionLine();
   drawNpcs();
   drawPlayer();
+  ctx.restore();
 
   requestAnimationFrame(tick);
 }
