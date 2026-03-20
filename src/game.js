@@ -260,7 +260,9 @@ function updatePlayer() {
 
   if (dx || dy) {
     const mag = Math.hypot(dx, dy) || 1;
-    const speedScale = player.phoneOut ? 0.72 : 1;
+    const hoodieSpeedScale = player.hoodieUp ? 0.84 : 1;
+    const phoneSpeedScale = player.phoneOut ? 0.72 : 1;
+    const speedScale = hoodieSpeedScale * phoneSpeedScale;
     const stepX = (dx / mag) * player.speed * speedScale;
     const stepY = (dy / mag) * player.speed * speedScale;
 
