@@ -536,11 +536,19 @@ globalThis.addEventListener("keyup", (e) => {
 });
 
 function toggleHoodie() {
+  if (gameOver) {
+    return;
+  }
+
   player.hoodieUp = !player.hoodieUp;
   updateActionHud();
 }
 
 function togglePhone() {
+  if (gameOver) {
+    return;
+  }
+
   player.phoneOut = !player.phoneOut;
   updateActionHud();
 }
@@ -556,6 +564,10 @@ function updateActionHud() {
 }
 
 function toggleRest() {
+  if (gameOver) {
+    return;
+  }
+
   const nearWall = walls.some((w) => {
     const cx = Math.max(w.x, Math.min(player.x, w.x + w.w));
     const cy = Math.max(w.y, Math.min(player.y, w.y + w.h));
