@@ -27,20 +27,12 @@ const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
-const H_ROAD_Y = [184, 484, 784];
-const V_ROAD_X = [260, 700, 1140, 1580];
-
-const roads = [
-  ...H_ROAD_Y.map((y) => ({ x: 0, y, w: WORLD.w, h: ROAD_WIDTH })),
-  ...V_ROAD_X.map((x) => ({ x, y: 0, w: ROAD_WIDTH, h: WORLD.h })),
-];
-
-const parks = [
-  { x: 340, y: 40, w: 280, h: 120 },
-  { x: 1220, y: 860, w: 320, h: 160 },
-];
-
-const lake = { x: 1240, y: 34, w: 280, h: 122 };
+let hRoadY = [];
+let vRoadX = [];
+let roads = [];
+let areas = [];
+let parks = [];
+let lakes = [];
 
 let walls = [];
 let npcs = [];
@@ -51,6 +43,117 @@ function randInt(min, max) {
 
 function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function roadIntersectsRect(road, rect) {
+  return rectsOverlap(road, rect);
+}
+
+function generateRoadStarts(count, axisMax, avoidSpans = []) {
+  const starts = [];
+  const section = axisMax / (count + 1);
+
+  for (let i = 0; i < count; i += 1) {
+    let placed = false;
+    let tries = 0;
+
+    while (!placed && tries < 80) {
+      tries += 1;
+      const jitter = randInt(-54, 54);
+      const raw = Math.round(section * (i + 1) - ROAD_WIDTH * 0.5 + jitter);
+      const minEdge = 20;
+      const maxEdge = axisMax - ROAD_WIDTH - 20;
+      const start = Math.max(minEdge, Math.min(maxEdge, raw));
+
+      const tooCloseToRoad = starts.some((existing) => Math.abs(existing - start) < 190);
+      const insideAvoid = avoidSpans.some((span) => start < span.max && start + ROAD_WIDTH > span.min);
+
+      if (!tooCloseToRoad && !insideAvoid) {
+        starts.push(start);
+        placed = true;
+      }
+    }
+  }
+
+  return starts.sort((a, b) => a - b);
+}
+
+function chooseAreaType() {
+  const roll = Math.random();
+  if (roll < 0.58) return "residential";
+  if (roll < 0.76) return "commercial";
+  if (roll < 0.89) return "park";
+  if (roll < 0.97) return "civic";
+  return "lake";
+}
+
+function generateNeighborhood() {
+  const avoidHorizontal = [
+    { min: houseA.y - 16, max: houseA.y + houseA.h + 16 },
+    { min: houseB.y - 16, max: houseB.y + houseB.h + 16 },
+  ];
+  const avoidVertical = [
+    { min: houseA.x - 16, max: houseA.x + houseA.w + 16 },
+    { min: houseB.x - 16, max: houseB.x + houseB.w + 16 },
+  ];
+
+  hRoadY = generateRoadStarts(randInt(3, 4), WORLD.h, avoidHorizontal);
+  vRoadX = generateRoadStarts(randInt(3, 5), WORLD.w, avoidVertical);
+
+  roads = [
+    ...hRoadY.map((y) => ({ x: 0, y, w: WORLD.w, h: ROAD_WIDTH })),
+    ...vRoadX.map((x) => ({ x, y: 0, w: ROAD_WIDTH, h: WORLD.h })),
+  ];
+
+  parks = [];
+  lakes = [];
+  areas = [];
+
+  const xSpans = spansBetweenRoads(vRoadX, WORLD.w);
+  const ySpans = spansBetweenRoads(hRoadY, WORLD.h);
+
+  xSpans.forEach((xSpan) => {
+    ySpans.forEach((ySpan) => {
+      const areaType = chooseAreaType();
+      const area = {
+        x: xSpan.min,
+        y: ySpan.min,
+        w: xSpan.max - xSpan.min,
+        h: ySpan.max - ySpan.min,
+        type: areaType,
+      };
+
+      areas.push(area);
+
+      if (areaType === "park") {
+        parks.push({
+          x: area.x + 14,
+          y: area.y + 14,
+          w: Math.max(20, area.w - 28),
+          h: Math.max(20, area.h - 28),
+        });
+      }
+
+      if (areaType === "lake" && lakes.length < 2) {
+        lakes.push({
+          x: area.x + 18,
+          y: area.y + 18,
+          w: Math.max(30, area.w - 36),
+          h: Math.max(30, area.h - 36),
+        });
+      }
+    });
+  });
+
+  if (lakes.length === 0 && areas.length > 0) {
+    const fallback = areas[randInt(0, areas.length - 1)];
+    lakes.push({
+      x: fallback.x + 24,
+      y: fallback.y + 24,
+      w: Math.max(40, fallback.w - 48),
+      h: Math.max(40, fallback.h - 48),
+    });
+  }
 }
 
 function spansBetweenRoads(starts, max) {
@@ -77,66 +180,206 @@ function generateWalls() {
     { x: houseB.x - 26, y: houseB.y - 26, w: houseB.w + 52, h: houseB.h + 52 },
     { x: player.x - 40, y: player.y - 40, w: 80, h: 80 },
     ...parks,
-    lake,
+    ...lakes,
   ];
 
   const generated = [];
-  const xSpans = spansBetweenRoads(V_ROAD_X, WORLD.w);
-  const ySpans = spansBetweenRoads(H_ROAD_Y, WORLD.h);
-
-  xSpans.forEach((xSpan) => {
-    ySpans.forEach((ySpan) => {
-      const cellW = xSpan.max - xSpan.min;
-      const cellH = ySpan.max - ySpan.min;
-      if (cellW < 120 || cellH < 120) {
-        return;
-      }
-
-      const buildingCount = randInt(2, 4);
-      let tries = 0;
-
-      while (tries < 30 && generated.length < 90) {
-        tries += 1;
-        if (generated.filter((b) => b.x >= xSpan.min && b.x + b.w <= xSpan.max && b.y >= ySpan.min && b.y + b.h <= ySpan.max).length >= buildingCount) {
-          break;
-        }
-
-        const bw = randInt(48, Math.min(118, cellW - 24));
-        const bh = randInt(40, Math.min(94, cellH - 24));
-        const edge = randInt(0, 3);
-        let x = xSpan.min + randInt(10, Math.max(10, cellW - bw - 10));
-        let y = ySpan.min + randInt(10, Math.max(10, cellH - bh - 10));
-
-        if (edge === 0) y = ySpan.min + 8;
-        if (edge === 1) x = xSpan.max - bw - 8;
-        if (edge === 2) y = ySpan.max - bh - 8;
-        if (edge === 3) x = xSpan.min + 8;
-
-        const building = { x, y, w: bw, h: bh };
-
-        if (blocked.some((zone) => rectsOverlap(building, zone))) {
-          continue;
-        }
-        if (generated.some((existing) => rectsOverlap(building, existing))) {
-          continue;
-        }
-        generated.push(building);
-      }
-    });
-  });
+  areas.forEach((area) => populateAreaBuildings(area, blocked, generated));
 
   return generated;
+}
+
+function getBuildingTarget(areaType) {
+  if (areaType === "residential") return randInt(3, 6);
+  if (areaType === "commercial") return randInt(2, 4);
+  return randInt(1, 3);
+}
+
+function getBuildingSize(areaType, maxWidth, maxHeight) {
+  const widthCap = areaType === "commercial" ? 146 : 112;
+  const heightCap = areaType === "commercial" ? 112 : 92;
+  return {
+    bw: randInt(48, Math.min(widthCap, maxWidth)),
+    bh: randInt(44, Math.min(heightCap, maxHeight)),
+  };
+}
+
+function getBuildingCandidate(area, bw, bh) {
+  const edge = randInt(0, 3);
+  let x = area.x + randInt(10, Math.max(10, area.w - bw - 10));
+  let y = area.y + randInt(10, Math.max(10, area.h - bh - 10));
+
+  if (edge === 0) y = area.y + 8;
+  if (edge === 1) x = area.x + area.w - bw - 8;
+  if (edge === 2) y = area.y + area.h - bh - 8;
+  if (edge === 3) x = area.x + 8;
+
+  return { x, y, w: bw, h: bh };
+}
+
+function isBuildingValid(building, blocked, generated) {
+  if (blocked.some((zone) => rectsOverlap(building, zone))) return false;
+  if (roads.some((road) => roadIntersectsRect(road, building))) return false;
+  return !generated.some((existing) => rectsOverlap(building, existing));
+}
+
+function populateAreaBuildings(area, blocked, generated) {
+  if (area.type === "park" || area.type === "lake") {
+    return;
+  }
+
+  const maxWidth = Math.max(48, area.w - 24);
+  const maxHeight = Math.max(44, area.h - 24);
+  if (maxWidth < 48 || maxHeight < 44) {
+    return;
+  }
+
+  const target = getBuildingTarget(area.type);
+  let tries = 0;
+
+  while (tries < 50) {
+    tries += 1;
+    const existingCount = generated.filter(
+      (b) => b.x >= area.x && b.x + b.w <= area.x + area.w && b.y >= area.y && b.y + b.h <= area.y + area.h,
+    ).length;
+    if (existingCount >= target) {
+      break;
+    }
+
+    const { bw, bh } = getBuildingSize(area.type, maxWidth, maxHeight);
+    const building = getBuildingCandidate(area, bw, bh);
+    if (isBuildingValid(building, blocked, generated)) {
+      generated.push(building);
+    }
+  }
 }
 
 function isPointInsideWall(x, y) {
   return walls.some((w) => x > w.x && x < w.x + w.w && y > w.y && y < w.y + w.h);
 }
 
+function findAreaForPoint(x, y) {
+  return areas.find((area) => x >= area.x && x <= area.x + area.w && y >= area.y && y <= area.y + area.h);
+}
+
+function getAreaBehavior(x, y) {
+  const type = findAreaForPoint(x, y)?.type || "residential";
+  if (type === "commercial") {
+    return { speedMin: 0.66, speedMax: 1.02, rangeMin: 108, rangeMax: 148, fovMin: 1.08, fovMax: 1.4, turnBias: 0.22 };
+  }
+  if (type === "park") {
+    return { speedMin: 0.45, speedMax: 0.76, rangeMin: 92, rangeMax: 128, fovMin: 0.95, fovMax: 1.2, turnBias: 0.16 };
+  }
+  if (type === "civic") {
+    return { speedMin: 0.58, speedMax: 0.86, rangeMin: 104, rangeMax: 138, fovMin: 1.05, fovMax: 1.32, turnBias: 0.2 };
+  }
+  if (type === "lake") {
+    return { speedMin: 0.5, speedMax: 0.8, rangeMin: 96, rangeMax: 132, fovMin: 0.98, fovMax: 1.25, turnBias: 0.28 };
+  }
+  return { speedMin: 0.5, speedMax: 0.8, rangeMin: 90, rangeMax: 125, fovMin: 0.92, fovMax: 1.16, turnBias: 0.12 };
+}
+
+function setNpcPatrolBounds(npc) {
+  if (npc.patrol === "h") {
+    npc.min = 20;
+    npc.max = WORLD.w - 20;
+  } else {
+    npc.min = 20;
+    npc.max = WORLD.h - 20;
+  }
+}
+
+function getRoadCenters(starts) {
+  return starts.map((start) => start + ROAD_WIDTH * 0.5);
+}
+
+function maybeTurnAtIntersection(npc) {
+  const horizontalCenters = getRoadCenters(hRoadY);
+  const verticalCenters = getRoadCenters(vRoadX);
+
+  const onHorizontal = horizontalCenters.some((center) => Math.abs(npc.y - center) < 12);
+  const onVertical = verticalCenters.some((center) => Math.abs(npc.x - center) < 12);
+
+  if (!onHorizontal || !onVertical) {
+    return;
+  }
+
+  const nearby = npcs.filter((other) => other !== npc && Math.hypot(other.x - npc.x, other.y - npc.y) < 92).length;
+  const turnChance = Math.min(0.62, npc.turnBias + nearby * 0.06);
+
+  if (Math.random() >= turnChance) {
+    return;
+  }
+
+  if (npc.patrol === "h") {
+    npc.patrol = "v";
+    npc.dir = Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5;
+    const snappedX = verticalCenters.reduce(
+      (best, center) => (Math.abs(center - npc.x) < Math.abs(best - npc.x) ? center : best),
+      verticalCenters[0],
+    );
+    npc.x = snappedX;
+  } else {
+    npc.patrol = "h";
+    npc.dir = Math.random() < 0.5 ? 0 : Math.PI;
+    const snappedY = horizontalCenters.reduce(
+      (best, center) => (Math.abs(center - npc.y) < Math.abs(best - npc.y) ? center : best),
+      horizontalCenters[0],
+    );
+    npc.y = snappedY;
+  }
+
+  setNpcPatrolBounds(npc);
+}
+
+function getNpcRoadCandidates() {
+  return {
+    horizontalRoads: roads.filter((r) => r.w > r.h),
+    verticalRoads: roads.filter((r) => r.h > r.w),
+  };
+}
+
+function getDirectionForPatrol(horizontal) {
+  if (horizontal) {
+    return Math.random() < 0.5 ? 0 : Math.PI;
+  }
+  return Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5;
+}
+
+function getNpcSpawnPoint(horizontal, road) {
+  const laneOffset = randInt(-18, 18);
+  const x = horizontal ? randInt(30, WORLD.w - 30) : road.x + road.w * 0.5 + laneOffset;
+  const y = horizontal ? road.y + road.h * 0.5 + laneOffset : randInt(30, WORLD.h - 30);
+  return { x, y };
+}
+
+function canSpawnNpcAt(x, y) {
+  const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
+  const farFromHouseA = Math.hypot(x - (houseA.x + houseA.w * 0.5), y - (houseA.y + houseA.h * 0.5)) > 100;
+  const farFromHouseB = Math.hypot(x - (houseB.x + houseB.w * 0.5), y - (houseB.y + houseB.h * 0.5)) > 100;
+  return farFromPlayer && farFromHouseA && farFromHouseB && !isPointInsideWall(x, y);
+}
+
+function buildNpc(x, y, horizontal) {
+  const behavior = getAreaBehavior(x, y);
+  return {
+    x,
+    y,
+    dir: getDirectionForPatrol(horizontal),
+    speed: behavior.speedMin + Math.random() * (behavior.speedMax - behavior.speedMin),
+    range: randInt(behavior.rangeMin, behavior.rangeMax),
+    fov: behavior.fovMin + Math.random() * (behavior.fovMax - behavior.fovMin),
+    patrol: horizontal ? "h" : "v",
+    turnBias: behavior.turnBias,
+    min: 20,
+    max: horizontal ? WORLD.w - 20 : WORLD.h - 20,
+  };
+}
+
 function generateNpcs() {
   const generated = [];
   const npcTarget = randInt(8, 14);
-  const horizontalRoads = roads.filter((r) => r.w > r.h);
-  const verticalRoads = roads.filter((r) => r.h > r.w);
+  const { horizontalRoads, verticalRoads } = getNpcRoadCandidates();
   let tries = 0;
 
   while (generated.length < npcTarget && tries < 500) {
@@ -146,29 +389,13 @@ function generateNpcs() {
       ? horizontalRoads[randInt(0, horizontalRoads.length - 1)]
       : verticalRoads[randInt(0, verticalRoads.length - 1)];
 
-    const laneOffset = randInt(-18, 18);
-    const x = horizontal ? randInt(30, WORLD.w - 30) : road.x + road.w / 2 + laneOffset;
-    const y = horizontal ? road.y + road.h / 2 + laneOffset : randInt(30, WORLD.h - 30);
-    const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
-    const farFromHouses =
-      Math.hypot(x - (houseA.x + houseA.w / 2), y - (houseA.y + houseA.h / 2)) > 100 &&
-      Math.hypot(x - (houseB.x + houseB.w / 2), y - (houseB.y + houseB.h / 2)) > 100;
+    const { x, y } = getNpcSpawnPoint(horizontal, road);
 
-    if (!farFromPlayer || !farFromHouses || isPointInsideWall(x, y)) {
+    if (!canSpawnNpcAt(x, y)) {
       continue;
     }
 
-    generated.push({
-      x,
-      y,
-      dir: horizontal ? (Math.random() < 0.5 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5,
-      speed: 0.55 + Math.random() * 0.4,
-      range: randInt(95, 140),
-      fov: 1 + Math.random() * 0.35,
-      patrol: horizontal ? "h" : "v",
-      min: 20,
-      max: horizontal ? WORLD.w - 20 : WORLD.h - 20,
-    });
+    generated.push(buildNpc(x, y, horizontal));
   }
 
   return generated;
@@ -492,15 +719,29 @@ function drawCity() {
     ctx.fillRect(p.x, p.y, p.w, p.h);
   });
 
-  ctx.fillStyle = "#90bed0";
-  ctx.beginPath();
-  ctx.ellipse(lake.x + lake.w * 0.5, lake.y + lake.h * 0.5, lake.w * 0.5, lake.h * 0.5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  lakes.forEach((lake) => {
+    ctx.fillStyle = "#90bed0";
+    ctx.beginPath();
+    ctx.ellipse(
+      lake.x + lake.w * 0.5,
+      lake.y + lake.h * 0.5,
+      lake.w * 0.5,
+      lake.h * 0.5,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  });
 
   roads.forEach((road) => {
     ctx.fillStyle = "#9a9c98";
+
+    maybeTurnAtIntersection(n);
     ctx.fillRect(road.x, road.y, road.w, road.h);
 
+
+generateNeighborhood();
     ctx.strokeStyle = "rgba(243, 239, 226, 0.65)";
     ctx.setLineDash([12, 14]);
     ctx.lineWidth = 2;
