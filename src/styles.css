@@ -126,15 +126,15 @@ body {
 }
 
 .hud.state-win {
-  background: #e8f6ef;
-  border-color: #8bc0a8;
-  box-shadow: inset 0 0 0 1px rgba(47, 125, 107, 0.2);
+  background: #d4f3e2;
+  border-color: #3f9d79;
+  box-shadow: inset 0 0 0 2px rgba(47, 125, 107, 0.34);
 }
 
 .hud.state-loss {
-  background: #fff0eb;
-  border-color: #d28d82;
-  box-shadow: inset 0 0 0 1px rgba(191, 61, 45, 0.2);
+  background: #ffdcd2;
+  border-color: #bf3d2d;
+  box-shadow: inset 0 0 0 2px rgba(191, 61, 45, 0.34);
 }
 
 .hud-topline {

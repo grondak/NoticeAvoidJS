@@ -542,7 +542,7 @@ globalThis.addEventListener("keyup", (e) => {
 });
 
 function toggleHoodie() {
-  if (gameOver) {
+  if (gameOver || delivered) {
     return;
   }
 
@@ -551,7 +551,7 @@ function toggleHoodie() {
 }
 
 function togglePhone() {
-  if (gameOver) {
+  if (gameOver || delivered) {
     return;
   }
 
@@ -570,7 +570,7 @@ function updateActionHud() {
 }
 
 function toggleRest() {
-  if (gameOver) {
+  if (gameOver || delivered) {
     return;
   }
 
@@ -598,6 +598,12 @@ function clearRemedies() {
   updateActionHud();
 }
 
+function lockEndStateControls() {
+  keys.clear();
+  clearRemedies();
+  updateHudTone();
+}
+
 function updateHudTone() {
   if (!hud) {
     return;
@@ -605,13 +611,16 @@ function updateHudTone() {
 
   hud.classList.remove("state-progress", "state-win", "state-loss");
   if (gameOver) {
+    hud.dataset.state = "loss";
     hud.classList.add("state-loss");
     return;
   }
   if (delivered) {
+    hud.dataset.state = "win";
     hud.classList.add("state-win");
     return;
   }
+  hud.dataset.state = "progress";
   hud.classList.add("state-progress");
 }
 
@@ -774,7 +783,7 @@ function updateAnxiety() {
 
   if (anxiety >= 100) {
     gameOver = true;
-    clearRemedies();
+    lockEndStateControls();
     statusText.textContent =
       gameOverReason === "burst"
         ? "You really can't make it to Chad's today."
@@ -793,7 +802,7 @@ function checkMission() {
     player.y < houseB.y + houseB.h
   ) {
     delivered = true;
-    clearRemedies();
+    lockEndStateControls();
     statusText.textContent = getDefaultStatusText();
     setBurstMessage("");
   }
