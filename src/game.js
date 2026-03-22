@@ -26,6 +26,22 @@ const player = {
 const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
+const ROAD_WIDTH = 72;
+const H_ROAD_Y = [184, 484, 784];
+const V_ROAD_X = [260, 700, 1140, 1580];
+
+const roads = [
+  ...H_ROAD_Y.map((y) => ({ x: 0, y, w: WORLD.w, h: ROAD_WIDTH })),
+  ...V_ROAD_X.map((x) => ({ x, y: 0, w: ROAD_WIDTH, h: WORLD.h })),
+];
+
+const parks = [
+  { x: 340, y: 40, w: 280, h: 120 },
+  { x: 1220, y: 860, w: 320, h: 160 },
+];
+
+const lake = { x: 1240, y: 34, w: 280, h: 122 };
+
 let walls = [];
 let npcs = [];
 
@@ -37,32 +53,77 @@ function rectsOverlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
+function spansBetweenRoads(starts, max) {
+  const cuts = [0, ...starts.flatMap((start) => [start, start + ROAD_WIDTH]), max].sort((a, b) => a - b);
+  const spans = [];
+
+  for (let i = 0; i < cuts.length - 1; i += 1) {
+    const min = cuts[i];
+    const maxEdge = cuts[i + 1];
+    const mid = (min + maxEdge) * 0.5;
+    const onRoad = starts.some((start) => mid >= start && mid <= start + ROAD_WIDTH);
+
+    if (!onRoad && maxEdge - min > 80) {
+      spans.push({ min, max: maxEdge });
+    }
+  }
+
+  return spans;
+}
+
 function generateWalls() {
   const blocked = [
-    { x: houseA.x - 20, y: houseA.y - 20, w: houseA.w + 40, h: houseA.h + 40 },
-    { x: houseB.x - 20, y: houseB.y - 20, w: houseB.w + 40, h: houseB.h + 40 },
-    { x: player.x - 30, y: player.y - 30, w: 60, h: 60 },
+    { x: houseA.x - 26, y: houseA.y - 26, w: houseA.w + 52, h: houseA.h + 52 },
+    { x: houseB.x - 26, y: houseB.y - 26, w: houseB.w + 52, h: houseB.h + 52 },
+    { x: player.x - 40, y: player.y - 40, w: 80, h: 80 },
+    ...parks,
+    lake,
   ];
 
   const generated = [];
-  const wallTarget = randInt(8, 16);
-  let tries = 0;
+  const xSpans = spansBetweenRoads(V_ROAD_X, WORLD.w);
+  const ySpans = spansBetweenRoads(H_ROAD_Y, WORLD.h);
 
-  while (generated.length < wallTarget && tries < 500) {
-    tries += 1;
-    const vertical = Math.random() < 0.5;
-    const wall = vertical
-      ? { x: randInt(200, 1680), y: randInt(100, 880), w: 14, h: randInt(90, 220) }
-      : { x: randInt(200, 1600), y: randInt(100, 960), w: randInt(90, 250), h: 14 };
+  xSpans.forEach((xSpan) => {
+    ySpans.forEach((ySpan) => {
+      const cellW = xSpan.max - xSpan.min;
+      const cellH = ySpan.max - ySpan.min;
+      if (cellW < 120 || cellH < 120) {
+        return;
+      }
 
-    if (blocked.some((zone) => rectsOverlap(wall, zone))) {
-      continue;
-    }
-    if (generated.some((existing) => rectsOverlap(wall, existing))) {
-      continue;
-    }
-    generated.push(wall);
-  }
+      const buildingCount = randInt(2, 4);
+      let tries = 0;
+
+      while (tries < 30 && generated.length < 90) {
+        tries += 1;
+        if (generated.filter((b) => b.x >= xSpan.min && b.x + b.w <= xSpan.max && b.y >= ySpan.min && b.y + b.h <= ySpan.max).length >= buildingCount) {
+          break;
+        }
+
+        const bw = randInt(48, Math.min(118, cellW - 24));
+        const bh = randInt(40, Math.min(94, cellH - 24));
+        const edge = randInt(0, 3);
+        let x = xSpan.min + randInt(10, Math.max(10, cellW - bw - 10));
+        let y = ySpan.min + randInt(10, Math.max(10, cellH - bh - 10));
+
+        if (edge === 0) y = ySpan.min + 8;
+        if (edge === 1) x = xSpan.max - bw - 8;
+        if (edge === 2) y = ySpan.max - bh - 8;
+        if (edge === 3) x = xSpan.min + 8;
+
+        const building = { x, y, w: bw, h: bh };
+
+        if (blocked.some((zone) => rectsOverlap(building, zone))) {
+          continue;
+        }
+        if (generated.some((existing) => rectsOverlap(building, existing))) {
+          continue;
+        }
+        generated.push(building);
+      }
+    });
+  });
 
   return generated;
 }
@@ -73,13 +134,21 @@ function isPointInsideWall(x, y) {
 
 function generateNpcs() {
   const generated = [];
-  const npcTarget = randInt(5, 12);
+  const npcTarget = randInt(8, 14);
+  const horizontalRoads = roads.filter((r) => r.w > r.h);
+  const verticalRoads = roads.filter((r) => r.h > r.w);
   let tries = 0;
 
   while (generated.length < npcTarget && tries < 500) {
     tries += 1;
-    const x = randInt(220, 1680);
-    const y = randInt(120, 940);
+    const horizontal = Math.random() < 0.5;
+    const road = horizontal
+      ? horizontalRoads[randInt(0, horizontalRoads.length - 1)]
+      : verticalRoads[randInt(0, verticalRoads.length - 1)];
+
+    const laneOffset = randInt(-18, 18);
+    const x = horizontal ? randInt(30, WORLD.w - 30) : road.x + road.w / 2 + laneOffset;
+    const y = horizontal ? road.y + road.h / 2 + laneOffset : randInt(30, WORLD.h - 30);
     const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
     const farFromHouses =
       Math.hypot(x - (houseA.x + houseA.w / 2), y - (houseA.y + houseA.h / 2)) > 100 &&
@@ -92,11 +161,13 @@ function generateNpcs() {
     generated.push({
       x,
       y,
-      dir: Math.random() * Math.PI * 2,
+      dir: horizontal ? (Math.random() < 0.5 ? 0 : Math.PI) : Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5,
       speed: 0.55 + Math.random() * 0.4,
       range: randInt(95, 140),
       fov: 1 + Math.random() * 0.35,
-      patrol: Math.random() < 0.5 ? "h" : "v",
+      patrol: horizontal ? "h" : "v",
+      min: 20,
+      max: horizontal ? WORLD.w - 20 : WORLD.h - 20,
     });
   }
 
@@ -285,12 +356,12 @@ function updateNpcs() {
   npcs.forEach((n) => {
     if (n.patrol === "h") {
       n.x += Math.cos(n.dir) * n.speed;
-      if (n.x < 200 || n.x > 1700) {
+      if (n.x < n.min || n.x > n.max) {
         n.dir = Math.PI - n.dir;
       }
     } else {
       n.y += Math.sin(n.dir) * n.speed;
-      if (n.y < 110 || n.y > 960) {
+      if (n.y < n.min || n.y > n.max) {
         n.dir = -n.dir;
       }
     }
@@ -413,14 +484,43 @@ function updateCamera() {
 }
 
 function drawCity() {
-  ctx.fillStyle = "#ece8de";
+  ctx.fillStyle = "#dfe7d4";
   ctx.fillRect(0, 0, WORLD.w, WORLD.h);
 
-  ctx.fillStyle = "#d6d1c2";
-  ctx.fillRect(0, 500, WORLD.w, 54);
-  ctx.fillRect(940, 0, 60, WORLD.h);
+  parks.forEach((p) => {
+    ctx.fillStyle = "#b7d2a6";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  });
 
-  ctx.fillStyle = "#a9b6b2";
+  ctx.fillStyle = "#90bed0";
+  ctx.beginPath();
+  ctx.ellipse(lake.x + lake.w * 0.5, lake.y + lake.h * 0.5, lake.w * 0.5, lake.h * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  roads.forEach((road) => {
+    ctx.fillStyle = "#9a9c98";
+    ctx.fillRect(road.x, road.y, road.w, road.h);
+
+    ctx.strokeStyle = "rgba(243, 239, 226, 0.65)";
+    ctx.setLineDash([12, 14]);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (road.w > road.h) {
+      const cy = road.y + road.h * 0.5;
+      ctx.moveTo(road.x + 16, cy);
+      ctx.lineTo(road.x + road.w - 16, cy);
+    } else {
+      const cx = road.x + road.w * 0.5;
+      ctx.moveTo(cx, road.y + 16);
+      ctx.lineTo(cx, road.y + road.h - 16);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  ctx.lineWidth = 1;
+
+  ctx.fillStyle = "#c7b59f";
   walls.forEach((w) => ctx.fillRect(w.x, w.y, w.w, w.h));
 
   drawHouse(houseA, "#af7248");
