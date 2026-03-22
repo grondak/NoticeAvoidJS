@@ -8,6 +8,7 @@ const burstText = document.getElementById("burstText");
 const hoodieState = document.getElementById("hoodieState");
 const phoneState = document.getElementById("phoneState");
 const restState = document.getElementById("restState");
+const hud = document.querySelector(".hud");
 
 const VIEWPORT = { w: canvas.width, h: canvas.height };
 const WORLD = { w: 1920, h: 1080 };
@@ -518,6 +519,11 @@ function clearBurstMessageIfDone(now) {
 
 globalThis.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
+
+  if (gameOver || delivered) {
+    return;
+  }
+
   keys.add(key);
 
   if (!e.repeat) {
@@ -583,6 +589,30 @@ function toggleRest() {
   } else {
     statusText.textContent = "Move next to a wall to use Wall-Flower mode.";
   }
+}
+
+function clearRemedies() {
+  player.hoodieUp = false;
+  player.phoneOut = false;
+  player.resting = false;
+  updateActionHud();
+}
+
+function updateHudTone() {
+  if (!hud) {
+    return;
+  }
+
+  hud.classList.remove("state-progress", "state-win", "state-loss");
+  if (gameOver) {
+    hud.classList.add("state-loss");
+    return;
+  }
+  if (delivered) {
+    hud.classList.add("state-win");
+    return;
+  }
+  hud.classList.add("state-progress");
 }
 
 function isMoving() {
@@ -744,6 +774,7 @@ function updateAnxiety() {
 
   if (anxiety >= 100) {
     gameOver = true;
+    clearRemedies();
     statusText.textContent =
       gameOverReason === "burst"
         ? "You really can't make it to Chad's today."
@@ -762,6 +793,7 @@ function checkMission() {
     player.y < houseB.y + houseB.h
   ) {
     delivered = true;
+    clearRemedies();
     statusText.textContent = getDefaultStatusText();
     setBurstMessage("");
   }
@@ -884,6 +916,7 @@ function tick() {
   updateNpcs();
   updateAnxiety();
   checkMission();
+  updateHudTone();
   updateCamera();
 
   ctx.save();
@@ -898,4 +931,5 @@ function tick() {
 }
 
 updateActionHud();
+updateHudTone();
 tick();
