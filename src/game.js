@@ -378,11 +378,11 @@ function buildNpc(x, y, horizontal) {
 
 function generateNpcs() {
   const generated = [];
-  const npcTarget = randInt(8, 14);
+  const npcTarget = randInt(20, 36);
   const { horizontalRoads, verticalRoads } = getNpcRoadCandidates();
   let tries = 0;
 
-  while (generated.length < npcTarget && tries < 500) {
+  while (generated.length < npcTarget && tries < 1400) {
     tries += 1;
     const horizontal = Math.random() < 0.5;
     const road = horizontal
