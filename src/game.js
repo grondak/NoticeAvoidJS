@@ -449,6 +449,7 @@ const keys = new Set();
 let anxiety = 25;
 let delivered = false;
 let gameOver = false;
+let gameOverReason = "";
 let burstMessageUntil = 0;
 let nextInternalBurstAt = performance.now() + randInt(7000, 14000);
 
@@ -495,6 +496,9 @@ function maybeTriggerInternalBurst(now) {
   const rawBurst = randInt(15, 35);
   const reducedBurst = Math.max(1, Math.round(rawBurst * (1 - getBurstMitigation())));
   anxiety = Math.min(100, anxiety + reducedBurst);
+  if (anxiety >= 100) {
+    gameOverReason = "burst";
+  }
 
   statusText.textContent = `Suddenly, you aren't feeling it. +${reducedBurst} anxiety`;
   setBurstMessage(`Suddenly, you aren't feeling it. +${reducedBurst} anxiety`);
@@ -728,7 +732,10 @@ function updateAnxiety() {
 
   if (anxiety >= 100) {
     gameOver = true;
-    statusText.textContent = getDefaultStatusText();
+    statusText.textContent =
+      gameOverReason === "burst"
+        ? "You really can't make it to Chad's today."
+        : getDefaultStatusText();
   }
 
   clearBurstMessageIfDone(performance.now());
