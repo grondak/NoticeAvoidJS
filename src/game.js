@@ -441,6 +441,7 @@ function generateNpcs() {
   return generated;
 }
 
+generateNeighborhood();
 walls = generateWalls();
 npcs = generateNpcs();
 
@@ -632,6 +633,8 @@ function updateNpcs() {
         n.dir = -n.dir;
       }
     }
+
+    maybeTurnAtIntersection(n);
   });
 }
 
@@ -776,12 +779,8 @@ function drawCity() {
 
   roads.forEach((road) => {
     ctx.fillStyle = "#9a9c98";
-
-    maybeTurnAtIntersection(n);
     ctx.fillRect(road.x, road.y, road.w, road.h);
 
-
-generateNeighborhood();
     ctx.strokeStyle = "rgba(243, 239, 226, 0.65)";
     ctx.setLineDash([12, 14]);
     ctx.lineWidth = 2;
