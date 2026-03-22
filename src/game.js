@@ -78,6 +78,24 @@ function generateRoadStarts(count, axisMax, avoidSpans = []) {
   return starts.sort((a, b) => a - b);
 }
 
+function ensureRoadCoverage(starts, axisMax, minimumCount, avoidSpans = []) {
+  const ensured = [...starts].sort((a, b) => a - b);
+  const section = axisMax / (minimumCount + 1);
+
+  for (let i = 0; ensured.length < minimumCount && i < minimumCount * 3; i += 1) {
+    const raw = Math.round(section * ((i % minimumCount) + 1) - ROAD_WIDTH * 0.5);
+    const start = Math.max(20, Math.min(axisMax - ROAD_WIDTH - 20, raw));
+    const tooClose = ensured.some((existing) => Math.abs(existing - start) < 170);
+    const insideAvoid = avoidSpans.some((span) => start < span.max && start + ROAD_WIDTH > span.min);
+
+    if (!tooClose && !insideAvoid) {
+      ensured.push(start);
+    }
+  }
+
+  return ensured.sort((a, b) => a - b);
+}
+
 function chooseAreaType() {
   const roll = Math.random();
   if (roll < 0.58) return "residential";
@@ -99,6 +117,8 @@ function generateNeighborhood() {
 
   hRoadY = generateRoadStarts(randInt(3, 4), WORLD.h, avoidHorizontal);
   vRoadX = generateRoadStarts(randInt(3, 5), WORLD.w, avoidVertical);
+  hRoadY = ensureRoadCoverage(hRoadY, WORLD.h, 2, avoidHorizontal);
+  vRoadX = ensureRoadCoverage(vRoadX, WORLD.w, 2, avoidVertical);
 
   roads = [
     ...hRoadY.map((y) => ({ x: 0, y, w: WORLD.w, h: ROAD_WIDTH })),
@@ -339,6 +359,20 @@ function getNpcRoadCandidates() {
   };
 }
 
+function chooseNpcRoad(horizontalRoads, verticalRoads) {
+  const hasHorizontal = horizontalRoads.length > 0;
+  const hasVertical = verticalRoads.length > 0;
+
+  if (!hasHorizontal && !hasVertical) {
+    return null;
+  }
+
+  const horizontal = hasHorizontal && (!hasVertical || Math.random() < 0.5);
+  const pool = horizontal ? horizontalRoads : verticalRoads;
+  const road = pool[randInt(0, pool.length - 1)];
+  return { horizontal, road };
+}
+
 function getDirectionForPatrol(horizontal) {
   if (horizontal) {
     return Math.random() < 0.5 ? 0 : Math.PI;
@@ -380,14 +414,20 @@ function generateNpcs() {
   const generated = [];
   const npcTarget = randInt(20, 36);
   const { horizontalRoads, verticalRoads } = getNpcRoadCandidates();
+
+  if (horizontalRoads.length === 0 && verticalRoads.length === 0) {
+    return generated;
+  }
+
   let tries = 0;
 
   while (generated.length < npcTarget && tries < 1400) {
     tries += 1;
-    const horizontal = Math.random() < 0.5;
-    const road = horizontal
-      ? horizontalRoads[randInt(0, horizontalRoads.length - 1)]
-      : verticalRoads[randInt(0, verticalRoads.length - 1)];
+    const roadChoice = chooseNpcRoad(horizontalRoads, verticalRoads);
+    if (!roadChoice?.road) {
+      continue;
+    }
+    const { horizontal, road } = roadChoice;
 
     const { x, y } = getNpcSpawnPoint(horizontal, road);
 
