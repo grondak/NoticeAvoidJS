@@ -18,6 +18,7 @@ import {
   getNpcSpawnPoint,
   spansBetweenRoads,
 } from "./world-rules.js";
+import { createVoiceMonologue, VOICE_CUE_TABLE } from "./voice-monologue.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -50,6 +51,18 @@ const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
 const NOTICE_LOCK_MS = 650;
+const HIGH_ANXIETY_THRESHOLD = 75;
+const NEAR_GOAL_DISTANCE = 220;
+
+// Provide a hosted WAV URL through this global before loading game.js.
+const VOICE_MONOLOGUE_URL = globalThis.NOTICE_AVOID_VOICE_URL || "";
+
+const voiceMonologue = createVoiceMonologue({
+  enabled: true,
+  voiceUrl: VOICE_MONOLOGUE_URL,
+  cueTable: VOICE_CUE_TABLE,
+});
+
 let hRoadY = [];
 let vRoadX = [];
 let roads = [];
@@ -384,6 +397,9 @@ let gameOver = false;
 let gameOverReason = "";
 let burstMessageUntil = 0;
 let nextInternalBurstAt = performance.now() + randInt(7000, 14000);
+let previousSeenCount = 0;
+let wasNearGoal = false;
+let wasHighAnxiety = false;
 
 function getDefaultStatusText() {
   return getDefaultStatusTextForState({
@@ -423,6 +439,10 @@ function maybeTriggerInternalBurst(now) {
   const rawBurst = randInt(15, 35);
   const reducedBurst = Math.max(1, Math.round(rawBurst * (1 - getBurstMitigation())));
   anxiety = Math.min(100, anxiety + reducedBurst);
+  voiceMonologue.trigger("burst_hit");
+  if (rawBurst >= 28) {
+    voiceMonologue.trigger("burst_heavy");
+  }
   if (anxiety >= 100) {
     gameOverReason = "burst";
   }
@@ -467,12 +487,22 @@ globalThis.addEventListener("keyup", (e) => {
   keys.delete(e.key.toLowerCase());
 });
 
+function warmVoiceMonologue() {
+  voiceMonologue.prepareAfterUserGesture();
+}
+
+globalThis.addEventListener("pointerdown", warmVoiceMonologue, { once: true });
+globalThis.addEventListener("keydown", warmVoiceMonologue, { once: true });
+
 function toggleHoodie() {
   if (!shouldAllowActions({ gameOver, delivered })) {
     return;
   }
 
   player.hoodieUp = !player.hoodieUp;
+  if (player.hoodieUp) {
+    voiceMonologue.trigger("hoodie_on");
+  }
   updateActionHud();
 }
 
@@ -482,6 +512,9 @@ function togglePhone() {
   }
 
   player.phoneOut = !player.phoneOut;
+  if (player.phoneOut) {
+    voiceMonologue.trigger("phone_on");
+  }
   updateActionHud();
 }
 
@@ -510,11 +543,13 @@ function toggleRest() {
 
   if (nearWall) {
     player.resting = !player.resting;
+    voiceMonologue.trigger(player.resting ? "rest_on" : "rest_off");
     statusText.textContent = player.resting
       ? "Wall-flower mode: taking a breather."
       : "Mission: deliver homework to Chad.";
     updateActionHud();
   } else {
+    voiceMonologue.trigger("rest_miss");
     statusText.textContent = "Move next to a wall to use Wall-Flower mode.";
   }
 }
@@ -676,8 +711,18 @@ function countNpcsSeeingPlayer() {
       now,
       NOTICE_LOCK_MS,
     );
+    const wasSeenSince = n.noticeSeenSince;
+    const wasLocked = n.noticeLocked;
     n.noticeLocked = nextNoticeState.isLocked;
     n.noticeSeenSince = nextNoticeState.seenSince;
+
+    if (!wasLocked && n.noticeLocked) {
+      voiceMonologue.trigger("notice_locked");
+    }
+
+    if (wasSeenSince !== null && !canSeeNow && !wasLocked) {
+      voiceMonologue.trigger("near_miss_cone_exit");
+    }
 
     if (n.noticeLocked) {
       seenCount += 1;
@@ -701,6 +746,10 @@ function updateAnxiety() {
   }
 
   const seenCount = countNpcsSeeingPlayer();
+  if (seenCount >= 2 && previousSeenCount < 2) {
+    voiceMonologue.trigger("crowd_locked");
+  }
+  previousSeenCount = seenCount;
   const anxietyDelta = getAnxietyDelta(seenCount);
 
   const movementStress = isMoving() && !player.phoneOut ? 0.02 : 0;
@@ -710,9 +759,18 @@ function updateAnxiety() {
   anxietyBar.value = anxiety;
   anxietyValue.textContent = String(Math.round(anxiety));
 
+  if (!wasHighAnxiety && anxiety >= HIGH_ANXIETY_THRESHOLD) {
+    voiceMonologue.trigger("anxiety_high");
+  }
+  if (wasHighAnxiety && anxiety < 40) {
+    voiceMonologue.trigger("anxiety_recovered");
+  }
+  wasHighAnxiety = anxiety >= HIGH_ANXIETY_THRESHOLD;
+
   if (anxiety >= 100) {
     gameOver = true;
     lockEndStateControls();
+    voiceMonologue.trigger(gameOverReason === "burst" ? "game_over_burst" : "game_over_seen");
     statusText.textContent =
       gameOverReason === "burst" ? getGameOverMessage("burst") : getGameOverMessage("other");
   }
@@ -721,6 +779,16 @@ function updateAnxiety() {
 }
 
 function checkMission() {
+  if (!delivered) {
+    const houseCenterX = houseB.x + houseB.w * 0.5;
+    const houseCenterY = houseB.y + houseB.h * 0.5;
+    const nearGoal = Math.hypot(player.x - houseCenterX, player.y - houseCenterY) <= NEAR_GOAL_DISTANCE;
+    if (!wasNearGoal && nearGoal) {
+      voiceMonologue.trigger("near_goal");
+    }
+    wasNearGoal = nearGoal;
+  }
+
   if (
     !delivered &&
     player.x > houseB.x &&
@@ -730,6 +798,7 @@ function checkMission() {
   ) {
     delivered = true;
     lockEndStateControls();
+    voiceMonologue.trigger("delivered");
     statusText.textContent = getDefaultStatusText();
     setBurstMessage("");
   }
