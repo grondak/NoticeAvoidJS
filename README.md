@@ -29,14 +29,35 @@ Then open <http://localhost:4173>.
 
 Open `index.html` and launch with Live Server.
 
+## Automated Tests
+
+Run regression tests with Node's built-in test runner:
+
+```bash
+npm test
+```
+
+Current coverage targets gameplay rules that are easy to regress:
+
+- End-state action lockout (no remedy toggles after win/loss)
+- HUD tone state mapping (progress/win/loss)
+- Anxiety delta behavior across seen/unseen and remedy states
+- Burst mitigation stacking and cap behavior
+- Movement key filtering and speed scaling
+
 ## Project Structure
 
 ```
 NoticeAvoidJS/
 ├── index.html
+├── package.json
 ├── src/
 │   ├── game.js
-│   └── styles.css
+│   ├── game-rules.js
+│   ├── styles.css
+│   └── version.js
+├── tests/
+│   └── game-rules.test.js
 └── README.md
 ```
 

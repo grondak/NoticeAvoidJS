@@ -1,3 +1,22 @@
+import {
+  getAnxietyDelta as getAnxietyDeltaForState,
+  getBurstMitigation as getBurstMitigationForState,
+  getDefaultStatusText as getDefaultStatusTextForState,
+  getGameOverMessage,
+  getHudToneState,
+  getSpeedScale as getSpeedScaleForState,
+  isMoving as isMovingKeys,
+  shouldAllowActions,
+} from "./game-rules.js";
+import {
+  chooseNpcRoad,
+  ensureRoadCoverage,
+  generateRoadStarts,
+  getDirectionForPatrol,
+  getNpcSpawnPoint,
+  spansBetweenRoads,
+} from "./world-rules.js";
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -50,53 +69,6 @@ function roadIntersectsRect(road, rect) {
   return rectsOverlap(road, rect);
 }
 
-function generateRoadStarts(count, axisMax, avoidSpans = []) {
-  const starts = [];
-  const section = axisMax / (count + 1);
-
-  for (let i = 0; i < count; i += 1) {
-    let placed = false;
-    let tries = 0;
-
-    while (!placed && tries < 80) {
-      tries += 1;
-      const jitter = randInt(-54, 54);
-      const raw = Math.round(section * (i + 1) - ROAD_WIDTH * 0.5 + jitter);
-      const minEdge = 20;
-      const maxEdge = axisMax - ROAD_WIDTH - 20;
-      const start = Math.max(minEdge, Math.min(maxEdge, raw));
-
-      const tooCloseToRoad = starts.some((existing) => Math.abs(existing - start) < 190);
-      const insideAvoid = avoidSpans.some((span) => start < span.max && start + ROAD_WIDTH > span.min);
-
-      if (!tooCloseToRoad && !insideAvoid) {
-        starts.push(start);
-        placed = true;
-      }
-    }
-  }
-
-  return starts.sort((a, b) => a - b);
-}
-
-function ensureRoadCoverage(starts, axisMax, minimumCount, avoidSpans = []) {
-  const ensured = [...starts].sort((a, b) => a - b);
-  const section = axisMax / (minimumCount + 1);
-
-  for (let i = 0; ensured.length < minimumCount && i < minimumCount * 3; i += 1) {
-    const raw = Math.round(section * ((i % minimumCount) + 1) - ROAD_WIDTH * 0.5);
-    const start = Math.max(20, Math.min(axisMax - ROAD_WIDTH - 20, raw));
-    const tooClose = ensured.some((existing) => Math.abs(existing - start) < 170);
-    const insideAvoid = avoidSpans.some((span) => start < span.max && start + ROAD_WIDTH > span.min);
-
-    if (!tooClose && !insideAvoid) {
-      ensured.push(start);
-    }
-  }
-
-  return ensured.sort((a, b) => a - b);
-}
-
 function chooseAreaType() {
   const roll = Math.random();
   if (roll < 0.58) return "residential";
@@ -116,10 +88,10 @@ function generateNeighborhood() {
     { min: houseB.x - 16, max: houseB.x + houseB.w + 16 },
   ];
 
-  hRoadY = generateRoadStarts(randInt(3, 4), WORLD.h, avoidHorizontal);
-  vRoadX = generateRoadStarts(randInt(3, 5), WORLD.w, avoidVertical);
-  hRoadY = ensureRoadCoverage(hRoadY, WORLD.h, 2, avoidHorizontal);
-  vRoadX = ensureRoadCoverage(vRoadX, WORLD.w, 2, avoidVertical);
+  hRoadY = generateRoadStarts(randInt(3, 4), WORLD.h, ROAD_WIDTH, avoidHorizontal);
+  vRoadX = generateRoadStarts(randInt(3, 5), WORLD.w, ROAD_WIDTH, avoidVertical);
+  hRoadY = ensureRoadCoverage(hRoadY, WORLD.h, 2, ROAD_WIDTH, avoidHorizontal);
+  vRoadX = ensureRoadCoverage(vRoadX, WORLD.w, 2, ROAD_WIDTH, avoidVertical);
 
   roads = [
     ...hRoadY.map((y) => ({ x: 0, y, w: WORLD.w, h: ROAD_WIDTH })),
@@ -130,8 +102,8 @@ function generateNeighborhood() {
   lakes = [];
   areas = [];
 
-  const xSpans = spansBetweenRoads(vRoadX, WORLD.w);
-  const ySpans = spansBetweenRoads(hRoadY, WORLD.h);
+  const xSpans = spansBetweenRoads(vRoadX, WORLD.w, ROAD_WIDTH);
+  const ySpans = spansBetweenRoads(hRoadY, WORLD.h, ROAD_WIDTH);
 
   xSpans.forEach((xSpan) => {
     ySpans.forEach((ySpan) => {
@@ -175,24 +147,6 @@ function generateNeighborhood() {
       h: Math.max(40, fallback.h - 48),
     });
   }
-}
-
-function spansBetweenRoads(starts, max) {
-  const cuts = [0, ...starts.flatMap((start) => [start, start + ROAD_WIDTH]), max].sort((a, b) => a - b);
-  const spans = [];
-
-  for (let i = 0; i < cuts.length - 1; i += 1) {
-    const min = cuts[i];
-    const maxEdge = cuts[i + 1];
-    const mid = (min + maxEdge) * 0.5;
-    const onRoad = starts.some((start) => mid >= start && mid <= start + ROAD_WIDTH);
-
-    if (!onRoad && maxEdge - min > 80) {
-      spans.push({ min, max: maxEdge });
-    }
-  }
-
-  return spans;
 }
 
 function generateWalls() {
@@ -360,34 +314,6 @@ function getNpcRoadCandidates() {
   };
 }
 
-function chooseNpcRoad(horizontalRoads, verticalRoads) {
-  const hasHorizontal = horizontalRoads.length > 0;
-  const hasVertical = verticalRoads.length > 0;
-
-  if (!hasHorizontal && !hasVertical) {
-    return null;
-  }
-
-  const horizontal = hasHorizontal && (!hasVertical || Math.random() < 0.5);
-  const pool = horizontal ? horizontalRoads : verticalRoads;
-  const road = pool[randInt(0, pool.length - 1)];
-  return { horizontal, road };
-}
-
-function getDirectionForPatrol(horizontal) {
-  if (horizontal) {
-    return Math.random() < 0.5 ? 0 : Math.PI;
-  }
-  return Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5;
-}
-
-function getNpcSpawnPoint(horizontal, road) {
-  const laneOffset = randInt(-18, 18);
-  const x = horizontal ? randInt(30, WORLD.w - 30) : road.x + road.w * 0.5 + laneOffset;
-  const y = horizontal ? road.y + road.h * 0.5 + laneOffset : randInt(30, WORLD.h - 30);
-  return { x, y };
-}
-
 function canSpawnNpcAt(x, y) {
   const farFromPlayer = Math.hypot(x - player.x, y - player.y) > 120;
   const farFromHouseA = Math.hypot(x - (houseA.x + houseA.w * 0.5), y - (houseA.y + houseA.h * 0.5)) > 100;
@@ -430,7 +356,7 @@ function generateNpcs() {
     }
     const { horizontal, road } = roadChoice;
 
-    const { x, y } = getNpcSpawnPoint(horizontal, road);
+    const { x, y } = getNpcSpawnPoint(horizontal, road, WORLD);
 
     if (!canSpawnNpcAt(x, y)) {
       continue;
@@ -455,24 +381,19 @@ let burstMessageUntil = 0;
 let nextInternalBurstAt = performance.now() + randInt(7000, 14000);
 
 function getDefaultStatusText() {
-  if (gameOver) {
-    return "Overwhelmed. Breathe and try again (refresh).";
-  }
-  if (delivered) {
-    return "Delivered. Chad got the science homework.";
-  }
-  if (player.resting) {
-    return "Wall-flower mode: taking a breather.";
-  }
-  return "Mission: deliver homework to Chad.";
+  return getDefaultStatusTextForState({
+    gameOver,
+    delivered,
+    resting: player.resting,
+  });
 }
 
 function getBurstMitigation() {
-  let mitigation = 0;
-  if (player.hoodieUp) mitigation += 0.18;
-  if (player.phoneOut) mitigation += 0.15;
-  if (player.resting) mitigation += 0.3;
-  return Math.min(0.65, mitigation);
+  return getBurstMitigationForState({
+    hoodieUp: player.hoodieUp,
+    phoneOut: player.phoneOut,
+    resting: player.resting,
+  });
 }
 
 function setBurstMessage(text) {
@@ -520,7 +441,7 @@ function clearBurstMessageIfDone(now) {
 globalThis.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
 
-  if (gameOver || delivered) {
+  if (!shouldAllowActions({ gameOver, delivered })) {
     return;
   }
 
@@ -542,7 +463,7 @@ globalThis.addEventListener("keyup", (e) => {
 });
 
 function toggleHoodie() {
-  if (gameOver || delivered) {
+  if (!shouldAllowActions({ gameOver, delivered })) {
     return;
   }
 
@@ -551,7 +472,7 @@ function toggleHoodie() {
 }
 
 function togglePhone() {
-  if (gameOver || delivered) {
+  if (!shouldAllowActions({ gameOver, delivered })) {
     return;
   }
 
@@ -570,7 +491,7 @@ function updateActionHud() {
 }
 
 function toggleRest() {
-  if (gameOver || delivered) {
+  if (!shouldAllowActions({ gameOver, delivered })) {
     return;
   }
 
@@ -609,13 +530,14 @@ function updateHudTone() {
     return;
   }
 
+  const tone = getHudToneState({ gameOver, delivered });
   hud.classList.remove("state-progress", "state-win", "state-loss");
-  if (gameOver) {
+  if (tone === "loss") {
     hud.dataset.state = "loss";
     hud.classList.add("state-loss");
     return;
   }
-  if (delivered) {
+  if (tone === "win") {
     hud.dataset.state = "win";
     hud.classList.add("state-win");
     return;
@@ -625,7 +547,7 @@ function updateHudTone() {
 }
 
 function isMoving() {
-  return keys.has("w") || keys.has("a") || keys.has("s") || keys.has("d");
+  return isMovingKeys(keys);
 }
 
 function insideRect(x, y, r) {
@@ -639,9 +561,10 @@ function collidesWithWalls(x, y, r) {
 }
 
 function getSpeedScale() {
-  const hoodieScale = player.hoodieUp ? 0.84 : 1;
-  const phoneScale = player.phoneOut ? 0.72 : 1;
-  return hoodieScale * phoneScale;
+  return getSpeedScaleForState({
+    hoodieUp: player.hoodieUp,
+    phoneOut: player.phoneOut,
+  });
 }
 
 function updatePlayer() {
@@ -751,19 +674,11 @@ function countNpcsSeeingPlayer() {
 }
 
 function getAnxietyDelta(seenCount) {
-  let anxietyDelta = -0.01;
-
-  if (seenCount > 0) {
-    anxietyDelta += 0.26 * seenCount;
-    if (player.hoodieUp) anxietyDelta -= 0.09;
-    if (player.phoneOut) anxietyDelta -= 0.07;
-    if (player.resting) anxietyDelta -= 0.18;
-  } else {
-    if (player.resting) anxietyDelta -= 0.22;
-    if (player.phoneOut) anxietyDelta -= 0.02;
-  }
-
-  return anxietyDelta;
+  return getAnxietyDeltaForState(seenCount, {
+    hoodieUp: player.hoodieUp,
+    phoneOut: player.phoneOut,
+    resting: player.resting,
+  });
 }
 
 function updateAnxiety() {
@@ -785,9 +700,7 @@ function updateAnxiety() {
     gameOver = true;
     lockEndStateControls();
     statusText.textContent =
-      gameOverReason === "burst"
-        ? "You really can't make it to Chad's today."
-        : getDefaultStatusText();
+      gameOverReason === "burst" ? getGameOverMessage("burst") : getGameOverMessage("other");
   }
 
   clearBurstMessageIfDone(performance.now());
