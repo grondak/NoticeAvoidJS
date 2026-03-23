@@ -39,7 +39,7 @@ const player = {
   x: 90,
   y: 930,
   r: 10,
-  speed: 2.3,
+  speed: 1.8,
   hoodieUp: false,
   phoneOut: false,
   resting: false,
@@ -49,7 +49,7 @@ const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
-const NOTICE_LOCK_MS = 900;
+const NOTICE_LOCK_MS = 650;
 let hRoadY = [];
 let vRoadX = [];
 let roads = [];
