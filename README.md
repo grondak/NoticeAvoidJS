@@ -2,6 +2,10 @@
 
 Notice:Avoid is a browser social-stealth game. You walk from your house to Chad's across a generated neighborhood while trying to avoid being noticed and keeping anxiety under control.
 
+**[▶ Play it now on GitHub Pages](https://grondak.github.io/NoticeAvoidJS/)**
+
+![Notice:Avoid gameplay screenshot showing a top-down neighborhood map with NPC sight cones, roads, buildings, and the anxiety HUD](assets/NoticeAvoidGamePlay.png)
+
 ## Current Prototype
 
 - Top-down movement using WASD
@@ -115,3 +119,5 @@ For quick hosting, in repo settings:
 Your game will be published at:
 
 `https://<your-username>.github.io/NoticeAvoidJS/`
+
+This repo is live at: **https://grondak.github.io/NoticeAvoidJS/**
