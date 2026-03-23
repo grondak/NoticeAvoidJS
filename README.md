@@ -1,16 +1,19 @@
 # NoticeAvoidJS
 
-Notice:Avoid is a lightweight browser game prototype. You move through a city to deliver Chad's science homework while trying to avoid being noticed and keeping anxiety under control.
+Notice:Avoid is a browser social-stealth game. You walk from your house to Chad's across a generated neighborhood while trying to avoid being noticed and keeping anxiety under control.
 
 ## Current Prototype
 
-- Top-down movement using WASD or arrow keys
-- NPC line-of-sight awareness
-- Anxiety system that rises when you are seen
+- Top-down movement using WASD
+- Procedurally generated neighborhood blocks, roads, parks, and lakes
+- NPC line-of-sight awareness and road-based patrol behavior
+- Anxiety system that rises when you are seen or when internal bursts hit
 - Player social tools:
   - Hoodie up/down
   - Phone out/away
-  - Wall-resting (press Space while next to a wall)
+  - Wall-flower mode (press P near building walls)
+- Movement penalties while hoodie/phone are active
+- HUD state colors for in-progress, win, and loss
 - Win condition: reach Chad's house before anxiety maxes out
 
 ## Local Run
@@ -23,11 +26,18 @@ Because this is plain HTML/CSS/JS, you can run it with any static file server.
 python3 -m http.server 4173
 ```
 
-Then open <http://localhost:4173>.
+Then open <http://localhost:4173> and click through to `play.html`.
 
 ### Option 2: VS Code Live Server
 
 Open `index.html` and launch with Live Server.
+
+## Controls
+
+- Move: W A S D
+- Hoodie toggle: I
+- Phone toggle: O
+- Wall-flower toggle: P (near building walls)
 
 ## Automated Tests
 
@@ -44,20 +54,25 @@ Current coverage targets gameplay rules that are easy to regress:
 - Anxiety delta behavior across seen/unseen and remedy states
 - Burst mitigation stacking and cap behavior
 - Movement key filtering and speed scaling
+- Road generation invariants and minimum coverage
+- NPC road selection, patrol direction, and spawn lane bounds
 
 ## Project Structure
 
 ```
 NoticeAvoidJS/
 ├── index.html
+├── play.html
 ├── package.json
 ├── src/
 │   ├── game.js
 │   ├── game-rules.js
 │   ├── styles.css
-│   └── version.js
+│   ├── version.js
+│   └── world-rules.js
 ├── tests/
-│   └── game-rules.test.js
+│   ├── game-rules.test.js
+│   └── world-rules.test.js
 └── README.md
 ```
 
