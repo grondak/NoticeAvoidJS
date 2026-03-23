@@ -1,6 +1,6 @@
 # NoticeAvoidJS
 
-Notice:Avoid is a browser social-stealth game. You walk from your house to Chad's across a generated neighborhood while trying to avoid being noticed and keeping anxiety under control.
+Notice:Avoid is a browser game about social anxiety. You need to walk from your house to Chad's — a simple errand — but every person you pass, every glance in your direction, and every random internal spike makes that walk feel enormous. Use coping tools, find a wall to lean on, and get there before anxiety wins.
 
 **[▶ Play it now on GitHub Pages](https://grondak.github.io/NoticeAvoidJS/)**
 
