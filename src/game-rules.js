@@ -35,6 +35,11 @@ export function getSpeedScale(state) {
   return hoodieScale * phoneScale;
 }
 
+export function getWallFlowerActivationDistance(playerRadius, playerSpeed) {
+  // Movement occurs in discrete steps, so collision can stop slightly before ideal touching distance.
+  return playerRadius + playerSpeed;
+}
+
 export function isMoving(keys) {
   return keys.has("w") || keys.has("a") || keys.has("s") || keys.has("d");
 }

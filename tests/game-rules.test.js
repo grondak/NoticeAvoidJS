@@ -8,6 +8,7 @@ import {
   getGameOverMessage,
   getHudToneState,
   getSpeedScale,
+  getWallFlowerActivationDistance,
   isMoving,
   shouldAllowActions,
 } from "../src/game-rules.js";
@@ -73,4 +74,34 @@ test("anxiety delta changes with visibility and remedies", () => {
 test("burst game-over message is specific", () => {
   assert.equal(getGameOverMessage("burst"), "You really can't make it to Chad's today.");
   assert.equal(getGameOverMessage("other"), "Overwhelmed. Breathe and try again (refresh).");
+});
+
+test("wall-flower can be reached consistently while approaching a wall", () => {
+  const playerRadius = 10;
+  const wallX = 100;
+  const speed = 2.3;
+  const wallFlowerThreshold = getWallFlowerActivationDistance(playerRadius, speed);
+
+  // Mirror collision logic in game.js: movement step is blocked once next x would overlap wall.
+  const nearestReachableDistance = (phaseOffset) => {
+    let x = 80 + phaseOffset;
+    while (true) {
+      const nextX = x + speed;
+      const collides = nextX + playerRadius > wallX;
+      if (collides) {
+        break;
+      }
+      x = nextX;
+    }
+    return wallX - x;
+  };
+
+  // Expectation: no matter movement phase, player should be able to get close enough to trigger wall-flower.
+  for (let phase = 0; phase < speed; phase += 0.05) {
+    const distance = nearestReachableDistance(phase);
+    assert.ok(
+      distance <= wallFlowerThreshold,
+      `phase=${phase.toFixed(2)} stops at distance=${distance.toFixed(3)}, threshold=${wallFlowerThreshold}`,
+    );
+  }
 });

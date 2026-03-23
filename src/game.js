@@ -5,6 +5,7 @@ import {
   getGameOverMessage,
   getHudToneState,
   getSpeedScale as getSpeedScaleForState,
+  getWallFlowerActivationDistance,
   isMoving as isMovingKeys,
   shouldAllowActions,
 } from "./game-rules.js";
@@ -495,10 +496,12 @@ function toggleRest() {
     return;
   }
 
+  const activationDistance = getWallFlowerActivationDistance(player.r, player.speed);
+
   const nearWall = walls.some((w) => {
     const cx = Math.max(w.x, Math.min(player.x, w.x + w.w));
     const cy = Math.max(w.y, Math.min(player.y, w.y + w.h));
-    return Math.hypot(player.x - cx, player.y - cy) < 12;
+    return Math.hypot(player.x - cx, player.y - cy) <= activationDistance;
   });
 
   if (nearWall) {
