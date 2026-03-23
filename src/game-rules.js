@@ -40,6 +40,23 @@ export function getWallFlowerActivationDistance(playerRadius, playerSpeed) {
   return playerRadius + playerSpeed;
 }
 
+export function getNpcNoticeState(previousState, canSeeNow, now, lockMs) {
+  if (!canSeeNow) {
+    return { isLocked: false, seenSince: null };
+  }
+
+  if (previousState.seenSince === null) {
+    return { isLocked: false, seenSince: now };
+  }
+
+  if (previousState.isLocked) {
+    return previousState;
+  }
+
+  const isLocked = now - previousState.seenSince >= lockMs;
+  return { isLocked, seenSince: previousState.seenSince };
+}
+
 export function isMoving(keys) {
   return keys.has("w") || keys.has("a") || keys.has("s") || keys.has("d");
 }

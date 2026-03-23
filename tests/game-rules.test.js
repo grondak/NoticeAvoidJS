@@ -7,6 +7,7 @@ import {
   getDefaultStatusText,
   getGameOverMessage,
   getHudToneState,
+  getNpcNoticeState,
   getSpeedScale,
   getWallFlowerActivationDistance,
   isMoving,
@@ -104,4 +105,24 @@ test("wall-flower can be reached consistently while approaching a wall", () => {
       `phase=${phase.toFixed(2)} stops at distance=${distance.toFixed(3)}, threshold=${wallFlowerThreshold}`,
     );
   }
+});
+
+test("npc notice timer locks only after dwell time", () => {
+  const lockMs = 900;
+
+  const start = getNpcNoticeState({ isLocked: false, seenSince: null }, true, 1000, lockMs);
+  assert.deepEqual(start, { isLocked: false, seenSince: 1000 });
+
+  const almost = getNpcNoticeState(start, true, 1850, lockMs);
+  assert.deepEqual(almost, { isLocked: false, seenSince: 1000 });
+
+  const locked = getNpcNoticeState(almost, true, 1900, lockMs);
+  assert.deepEqual(locked, { isLocked: true, seenSince: 1000 });
+});
+
+test("npc notice resets when player leaves cone", () => {
+  const lockMs = 900;
+  const prev = { isLocked: true, seenSince: 1000 };
+  const reset = getNpcNoticeState(prev, false, 1400, lockMs);
+  assert.deepEqual(reset, { isLocked: false, seenSince: null });
 });

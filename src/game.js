@@ -4,6 +4,7 @@ import {
   getDefaultStatusText as getDefaultStatusTextForState,
   getGameOverMessage,
   getHudToneState,
+  getNpcNoticeState,
   getSpeedScale as getSpeedScaleForState,
   getWallFlowerActivationDistance,
   isMoving as isMovingKeys,
@@ -48,6 +49,7 @@ const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
+const NOTICE_LOCK_MS = 900;
 let hRoadY = [];
 let vRoadX = [];
 let roads = [];
@@ -333,6 +335,8 @@ function buildNpc(x, y, horizontal) {
     fov: behavior.fovMin + Math.random() * (behavior.fovMax - behavior.fovMin),
     patrol: horizontal ? "h" : "v",
     turnBias: behavior.turnBias,
+    noticeLocked: false,
+    noticeSeenSince: null,
     min: 20,
     max: horizontal ? WORLD.w - 20 : WORLD.h - 20,
   };
@@ -653,22 +657,29 @@ function segmentsIntersect(a, b, c, d) {
 }
 
 function countNpcsSeeingPlayer() {
+  const now = performance.now();
   let seenCount = 0;
 
   npcs.forEach((n) => {
     const dx = player.x - n.x;
     const dy = player.y - n.y;
     const dist = Math.hypot(dx, dy);
-
-    if (dist > n.range) {
-      return;
-    }
-
     const angleToPlayer = Math.atan2(dy, dx);
     const facing = n.dir;
     const delta = Math.atan2(Math.sin(angleToPlayer - facing), Math.cos(angleToPlayer - facing));
+    const canSeeNow =
+      dist <= n.range && Math.abs(delta) < n.fov * 0.5 && !lineBlockedByWall(n.x, n.y, player.x, player.y);
 
-    if (Math.abs(delta) < n.fov * 0.5 && !lineBlockedByWall(n.x, n.y, player.x, player.y)) {
+    const nextNoticeState = getNpcNoticeState(
+      { isLocked: n.noticeLocked, seenSince: n.noticeSeenSince },
+      canSeeNow,
+      now,
+      NOTICE_LOCK_MS,
+    );
+    n.noticeLocked = nextNoticeState.isLocked;
+    n.noticeSeenSince = nextNoticeState.seenSince;
+
+    if (n.noticeLocked) {
       seenCount += 1;
     }
   });
@@ -800,7 +811,7 @@ function drawNpcs() {
     ctx.arc(n.x, n.y, 10, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(191, 61, 45, 0.15)";
+    ctx.fillStyle = n.noticeLocked ? "rgba(191, 61, 45, 0.24)" : "rgba(61, 112, 147, 0.14)";
     ctx.beginPath();
     ctx.moveTo(n.x, n.y);
     ctx.arc(n.x, n.y, n.range, n.dir - n.fov / 2, n.dir + n.fov / 2);
