@@ -11,11 +11,11 @@ import {
   shouldAllowActions,
 } from "./game-rules.js";
 import {
-  chooseNpcRoad,
   ensureRoadCoverage,
   generateRoadStarts,
   getDirectionForPatrol,
-  getNpcSpawnPoint,
+  getNpcSidewalkSpawn,
+  getSidewalkLanes,
   spansBetweenRoads,
 } from "./world-rules.js";
 import { createVoiceMonologue, VOICE_CUE_TABLE } from "./voice-monologue.js";
@@ -35,6 +35,11 @@ const hud = document.querySelector(".hud");
 const VIEWPORT = { w: canvas.width, h: canvas.height };
 const WORLD = { w: 1920, h: 1080 };
 const camera = { x: 0, y: 0 };
+const GAME_PACE = 0.5;
+
+function paceMs(ms) {
+  return Math.round(ms / GAME_PACE);
+}
 
 const player = {
   x: 90,
@@ -50,7 +55,8 @@ const houseA = { x: 36, y: 880, w: 120, h: 95, label: "Your House" };
 const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
-const NOTICE_LOCK_MS = 650;
+const SIDEWALK_INSET = 9;
+const NOTICE_LOCK_MS = paceMs(400);
 const HIGH_ANXIETY_THRESHOLD = 75;
 const NEAR_GOAL_DISTANCE = 220;
 
@@ -72,6 +78,7 @@ let lakes = [];
 
 let walls = [];
 let npcs = [];
+let sidewalkLanes = [];
 
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -280,18 +287,18 @@ function setNpcPatrolBounds(npc) {
   }
 }
 
-function getRoadCenters(starts) {
-  return starts.map((start) => start + ROAD_WIDTH * 0.5);
-}
-
 function maybeTurnAtIntersection(npc) {
-  const horizontalCenters = getRoadCenters(hRoadY);
-  const verticalCenters = getRoadCenters(vRoadX);
-
-  const onHorizontal = horizontalCenters.some((center) => Math.abs(npc.y - center) < 12);
-  const onVertical = verticalCenters.some((center) => Math.abs(npc.x - center) < 12);
+  // Fire when NPC is inside both a horizontal and vertical road band — i.e. at an intersection.
+  const onHorizontal = hRoadY.some((ry) => npc.y >= ry - 2 && npc.y <= ry + ROAD_WIDTH + 2);
+  const onVertical = vRoadX.some((rx) => npc.x >= rx - 2 && npc.x <= rx + ROAD_WIDTH + 2);
 
   if (!onHorizontal || !onVertical) {
+    return;
+  }
+
+  // Cooldown prevents re-firing every tick while inside the intersection band.
+  const now = performance.now();
+  if (now - npc.lastTurnedAt < 1200) {
     return;
   }
 
@@ -299,35 +306,36 @@ function maybeTurnAtIntersection(npc) {
   const turnChance = Math.min(0.62, npc.turnBias + nearby * 0.06);
 
   if (Math.random() >= turnChance) {
+    npc.lastTurnedAt = now; // consumed the decision window even if no turn taken
     return;
   }
 
+  // Sidewalk lane coords for each direction.
+  const vSidewalkCoords = vRoadX.flatMap((rx) => [rx + SIDEWALK_INSET, rx + ROAD_WIDTH - SIDEWALK_INSET]);
+  const hSidewalkCoords = hRoadY.flatMap((ry) => [ry + SIDEWALK_INSET, ry + ROAD_WIDTH - SIDEWALK_INSET]);
+
   if (npc.patrol === "h") {
+    if (vSidewalkCoords.length === 0) return;
     npc.patrol = "v";
     npc.dir = Math.random() < 0.5 ? Math.PI * 0.5 : Math.PI * 1.5;
-    const snappedX = verticalCenters.reduce(
-      (best, center) => (Math.abs(center - npc.x) < Math.abs(best - npc.x) ? center : best),
-      verticalCenters[0],
+    const snappedX = vSidewalkCoords.reduce(
+      (best, coord) => (Math.abs(coord - npc.x) < Math.abs(best - npc.x) ? coord : best),
     );
     npc.x = snappedX;
+    npc.laneCoord = snappedX;
   } else {
+    if (hSidewalkCoords.length === 0) return;
     npc.patrol = "h";
     npc.dir = Math.random() < 0.5 ? 0 : Math.PI;
-    const snappedY = horizontalCenters.reduce(
-      (best, center) => (Math.abs(center - npc.y) < Math.abs(best - npc.y) ? center : best),
-      horizontalCenters[0],
+    const snappedY = hSidewalkCoords.reduce(
+      (best, coord) => (Math.abs(coord - npc.y) < Math.abs(best - npc.y) ? coord : best),
     );
     npc.y = snappedY;
+    npc.laneCoord = snappedY;
   }
 
+  npc.lastTurnedAt = now;
   setNpcPatrolBounds(npc);
-}
-
-function getNpcRoadCandidates() {
-  return {
-    horizontalRoads: roads.filter((r) => r.w > r.h),
-    verticalRoads: roads.filter((r) => r.h > r.w),
-  };
 }
 
 function canSpawnNpcAt(x, y) {
@@ -337,7 +345,8 @@ function canSpawnNpcAt(x, y) {
   return farFromPlayer && farFromHouseA && farFromHouseB && !isPointInsideWall(x, y);
 }
 
-function buildNpc(x, y, horizontal) {
+function buildNpc(x, y, lane) {
+  const horizontal = lane.horizontal;
   const behavior = getAreaBehavior(x, y);
   return {
     x,
@@ -350,6 +359,8 @@ function buildNpc(x, y, horizontal) {
     turnBias: behavior.turnBias,
     noticeLocked: false,
     noticeSeenSince: null,
+    laneCoord: lane.coord,
+    lastTurnedAt: 0,
     min: 20,
     max: horizontal ? WORLD.w - 20 : WORLD.h - 20,
   };
@@ -358,9 +369,8 @@ function buildNpc(x, y, horizontal) {
 function generateNpcs() {
   const generated = [];
   const npcTarget = randInt(20, 36);
-  const { horizontalRoads, verticalRoads } = getNpcRoadCandidates();
 
-  if (horizontalRoads.length === 0 && verticalRoads.length === 0) {
+  if (sidewalkLanes.length === 0) {
     return generated;
   }
 
@@ -368,25 +378,21 @@ function generateNpcs() {
 
   while (generated.length < npcTarget && tries < 1400) {
     tries += 1;
-    const roadChoice = chooseNpcRoad(horizontalRoads, verticalRoads);
-    if (!roadChoice?.road) {
-      continue;
-    }
-    const { horizontal, road } = roadChoice;
-
-    const { x, y } = getNpcSpawnPoint(horizontal, road, WORLD);
+    const lane = sidewalkLanes[randInt(0, sidewalkLanes.length - 1)];
+    const { x, y } = getNpcSidewalkSpawn(lane, WORLD);
 
     if (!canSpawnNpcAt(x, y)) {
       continue;
     }
 
-    generated.push(buildNpc(x, y, horizontal));
+    generated.push(buildNpc(x, y, lane));
   }
 
   return generated;
 }
 
 generateNeighborhood();
+sidewalkLanes = getSidewalkLanes(hRoadY, vRoadX, ROAD_WIDTH, SIDEWALK_INSET);
 walls = generateWalls();
 npcs = generateNpcs();
 
@@ -396,7 +402,7 @@ let delivered = false;
 let gameOver = false;
 let gameOverReason = "";
 let burstMessageUntil = 0;
-let nextInternalBurstAt = performance.now() + randInt(7000, 14000);
+let nextInternalBurstAt = performance.now() + randInt(paceMs(7000), paceMs(14000));
 let previousSeenCount = 0;
 let wasNearGoal = false;
 let wasHighAnxiety = false;
@@ -449,8 +455,8 @@ function maybeTriggerInternalBurst(now) {
 
   statusText.textContent = `Suddenly, you aren't feeling it. +${reducedBurst} anxiety`;
   setBurstMessage(`Suddenly, you aren't feeling it. +${reducedBurst} anxiety`);
-  burstMessageUntil = now + 2800;
-  nextInternalBurstAt = now + randInt(9000, 18000);
+  burstMessageUntil = now + paceMs(2800);
+  nextInternalBurstAt = now + randInt(paceMs(9000), paceMs(18000));
 }
 
 function clearBurstMessageIfDone(now) {
@@ -625,8 +631,8 @@ function updatePlayer() {
   if (dx || dy) {
     const mag = Math.hypot(dx, dy) || 1;
     const speedScale = getSpeedScale();
-    const stepX = (dx / mag) * player.speed * speedScale;
-    const stepY = (dy / mag) * player.speed * speedScale;
+    const stepX = (dx / mag) * player.speed * speedScale * GAME_PACE;
+    const stepY = (dy / mag) * player.speed * speedScale * GAME_PACE;
 
     const nx = player.x + stepX;
     const ny = player.y + stepY;
@@ -643,14 +649,23 @@ function updatePlayer() {
 function updateNpcs() {
   npcs.forEach((n) => {
     if (n.patrol === "h") {
-      n.x += Math.cos(n.dir) * n.speed;
+      n.x += Math.cos(n.dir) * n.speed * GAME_PACE;
       if (n.x < n.min || n.x > n.max) {
         n.dir = Math.PI - n.dir;
       }
     } else {
-      n.y += Math.sin(n.dir) * n.speed;
+      n.y += Math.sin(n.dir) * n.speed * GAME_PACE;
       if (n.y < n.min || n.y > n.max) {
         n.dir = -n.dir;
+      }
+    }
+
+    // Soft pull back toward sidewalk lane — keeps NPCs on the pavement, allows slight drift.
+    if (n.laneCoord != null) {
+      if (n.patrol === "h") {
+        n.y += (n.laneCoord - n.y) * 0.08 * GAME_PACE;
+      } else {
+        n.x += (n.laneCoord - n.x) * 0.08 * GAME_PACE;
       }
     }
 
@@ -750,9 +765,9 @@ function updateAnxiety() {
     voiceMonologue.trigger("crowd_locked");
   }
   previousSeenCount = seenCount;
-  const anxietyDelta = getAnxietyDelta(seenCount);
+  const anxietyDelta = getAnxietyDelta(seenCount) * GAME_PACE;
 
-  const movementStress = isMoving() && !player.phoneOut ? 0.02 : 0;
+  const movementStress = isMoving() && !player.phoneOut ? 0.02 * GAME_PACE : 0;
   anxiety = Math.max(0, Math.min(100, anxiety + anxietyDelta + movementStress));
   maybeTriggerInternalBurst(performance.now());
 
@@ -833,10 +848,22 @@ function drawCity() {
     ctx.fill();
   });
 
-  roads.forEach((road) => {
-    ctx.fillStyle = "#9a9c98";
-    ctx.fillRect(road.x, road.y, road.w, road.h);
+  // Pass 1: sidewalk band (light concrete) — full road rect for each road.
+  ctx.fillStyle = "#c0bcb0";
+  roads.forEach((road) => ctx.fillRect(road.x, road.y, road.w, road.h));
 
+  // Pass 2: carriageway (asphalt) — inset from each road edge, leaving sidewalk strips.
+  ctx.fillStyle = "#9a9c98";
+  roads.forEach((road) => {
+    if (road.w > road.h) {
+      ctx.fillRect(road.x, road.y + SIDEWALK_INSET, road.w, road.h - SIDEWALK_INSET * 2);
+    } else {
+      ctx.fillRect(road.x + SIDEWALK_INSET, road.y, road.w - SIDEWALK_INSET * 2, road.h);
+    }
+  });
+
+  // Pass 3: centre-line dashes.
+  roads.forEach((road) => {
     ctx.strokeStyle = "rgba(243, 239, 226, 0.65)";
     ctx.setLineDash([12, 14]);
     ctx.lineWidth = 2;

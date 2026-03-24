@@ -1,4 +1,4 @@
-const GAME_VERSION = "v0.2.1";
+const GAME_VERSION = "v0.2.3";
 
 globalThis.NOTICE_AVOID_VERSION = GAME_VERSION;
 

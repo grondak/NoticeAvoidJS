@@ -94,3 +94,27 @@ export function getNpcSpawnPoint(horizontal, road, world, rng = Math.random) {
   const y = horizontal ? road.y + road.h * 0.5 + laneOffset : randInt(30, world.h - 30, rng);
   return { x, y };
 }
+
+// Returns all sidewalk patrol lanes for a given set of roads.
+// Each lane is { coord, horizontal } where coord is the y (horizontal lane)
+// or x (vertical lane) position of the sidewalk edge inside the road band.
+export function getSidewalkLanes(hRoadY, vRoadX, roadWidth, sidewalkInset) {
+  const lanes = [];
+  hRoadY.forEach((ry) => {
+    lanes.push({ coord: ry + sidewalkInset, horizontal: true });
+    lanes.push({ coord: ry + roadWidth - sidewalkInset, horizontal: true });
+  });
+  vRoadX.forEach((rx) => {
+    lanes.push({ coord: rx + sidewalkInset, horizontal: false });
+    lanes.push({ coord: rx + roadWidth - sidewalkInset, horizontal: false });
+  });
+  return lanes;
+}
+
+// Spawns an NPC anywhere along a sidewalk lane.
+export function getNpcSidewalkSpawn(lane, world, rng = Math.random) {
+  if (lane.horizontal) {
+    return { x: randInt(30, world.w - 30, rng), y: lane.coord };
+  }
+  return { x: lane.coord, y: randInt(30, world.h - 30, rng) };
+}

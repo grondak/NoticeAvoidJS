@@ -6,7 +6,9 @@ import {
   ensureRoadCoverage,
   generateRoadStarts,
   getDirectionForPatrol,
+  getNpcSidewalkSpawn,
   getNpcSpawnPoint,
+  getSidewalkLanes,
   spansBetweenRoads,
 } from "../src/world-rules.js";
 
@@ -102,4 +104,37 @@ test("getNpcSpawnPoint keeps NPCs in-lane and in-bounds", () => {
   assert.ok(verticalPoint.y >= 30 && verticalPoint.y <= world.h - 30);
   assert.ok(verticalPoint.x >= vRoad.x + vRoad.w * 0.5 - 18);
   assert.ok(verticalPoint.x <= vRoad.x + vRoad.w * 0.5 + 18);
+});
+
+test("getSidewalkLanes returns two lanes per road", () => {
+  const lanes = getSidewalkLanes([200, 500], [300, 700], 72, 9);
+  // 2 horizontal roads × 2 sides + 2 vertical roads × 2 sides = 8
+  assert.equal(lanes.length, 8);
+  assert.equal(lanes.filter((l) => l.horizontal).length, 4);
+  assert.equal(lanes.filter((l) => !l.horizontal).length, 4);
+});
+
+test("getSidewalkLanes coords are within their road band", () => {
+  const roadWidth = 72;
+  const inset = 9;
+  const lanes = getSidewalkLanes([200], [300], roadWidth, inset);
+  lanes.filter((l) => l.horizontal).forEach((l) => {
+    assert.ok(l.coord >= 200 && l.coord <= 200 + roadWidth, `h lane coord ${l.coord} outside road`);
+  });
+  lanes.filter((l) => !l.horizontal).forEach((l) => {
+    assert.ok(l.coord >= 300 && l.coord <= 300 + roadWidth, `v lane coord ${l.coord} outside road`);
+  });
+});
+
+test("getNpcSidewalkSpawn places NPC exactly on lane coord", () => {
+  const world = { w: 1920, h: 1080 };
+  const hLane = { coord: 250, horizontal: true };
+  const { x, y } = getNpcSidewalkSpawn(hLane, world, () => 0.5);
+  assert.equal(y, 250);
+  assert.ok(x >= 30 && x <= world.w - 30);
+
+  const vLane = { coord: 400, horizontal: false };
+  const pos = getNpcSidewalkSpawn(vLane, world, () => 0.5);
+  assert.equal(pos.x, 400);
+  assert.ok(pos.y >= 30 && pos.y <= world.h - 30);
 });
