@@ -56,7 +56,7 @@ const houseB = { x: 1740, y: 44, w: 150, h: 100, label: "Chad's House" };
 
 const ROAD_WIDTH = 72;
 const SIDEWALK_INSET = 9;
-const NOTICE_LOCK_MS = paceMs(400);
+const NOTICE_LOCK_MS = paceMs(250);
 const HIGH_ANXIETY_THRESHOLD = 75;
 const NEAR_GOAL_DISTANCE = 220;
 
